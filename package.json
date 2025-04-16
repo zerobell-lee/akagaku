@@ -1,0 +1,26 @@
+{
+  "name": "ukagaka-lite",
+  "version": "1.0.0",
+  "description": "Ukagaka-like node project",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "zerobell-lee",
+  "license": "ISC",
+  "dependencies": {
+    "@langchain/google-genai": "^0.2.3",
+    "@langchain/google-vertexai": "^0.2.4",
+    "@langchain/openai": "^0.5.5",
+    "axios": "^1.8.4",
+    "cheerio": "^1.0.0",
+    "dotenv": "^16.5.0",
+    "langchain": "^0.3.21",
+    "openai": "^4.95.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}
