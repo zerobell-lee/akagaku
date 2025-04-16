@@ -1,0 +1,114 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.speech-bubble {
+	display: block;
+	position: fixed;
+	background: #f7f7f7;
+	border-radius: .4em;
+	width: calc(100% - 24px);
+	height: calc(100% - 24px);
+	top: 0;
+	left: 0;
+	box-sizing: border-box;
+	font-family: "Single Day", cursive;
+	font-weight: 400;
+	font-style: normal;
+	overflow: hidden;
+}
+
+.speech-bubble:after {
+	content: '';
+	position: absolute;
+	right: 0;
+	top: 50%;
+	width: 24px;
+	height: 24px;
+	border: 12px solid transparent;
+	border-left-color: #f7f7f7;
+	border-right: 0;
+	border-top: 0;
+	margin-top: -12px;
+	margin-right: -24px;
+}
+
+img {
+	pointer-events: none;
+	user-select: none;
+}
+
+.loading-spinner {
+	display: block;
+	position: fixed;
+	background: transparent;
+	width: 100vw;
+	height: 100vh;
+	top: 0;
+	left: 0;
+	z-index: 9999;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+
+.loading-spinner::before {
+	content: '';
+	border: 6px solid rgba(0, 0, 0, 0.1);
+	border-left: 6px solid #000;
+	border-radius: 50%;
+	width: 60px;
+	height: 60px;
+	animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+	0% {
+		transform: rotate(0deg);
+	}
+
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+/* End Generation Here */
+
+.toast {
+	width: 100%;
+	background-color: rgba(0, 0, 0, 0.7);
+	text-align: center;
+	color: #fff;
+	border-radius: 10px;
+	padding: 10px;
+}
+
+@keyframes stayVisible {
+	from {
+		opacity: 1;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes fadeOut {
+	from {
+		opacity: 1;
+	}
+
+	to {
+		opacity: 0;
+	}
+}
+
