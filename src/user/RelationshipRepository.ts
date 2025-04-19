@@ -1,5 +1,6 @@
 import fs from 'fs';
 import yaml from 'js-yaml';
+import { logger } from '../config/logger';
 
 
 // Start Generation Here
@@ -40,9 +41,9 @@ export const updateCharacterRelationships = async (character_name: string, affec
     character_relationship.attitude_to_user = attitude_to_user;
     fs.writeFile('data/user/relationship.yaml', yaml.dump(character_relationships), (err) => {
         if (err) {
-            console.error('Error writing relationship.yaml:', err);
+            logger.error('Error writing relationship.yaml:', err);
         } else {
-            console.log('relationship.yaml updated successfully');
+            logger.debug('relationship.yaml updated successfully');
         }
     });
     return character_relationship;

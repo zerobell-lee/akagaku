@@ -1,6 +1,6 @@
 import yaml from 'js-yaml';
 import fs from 'fs';
-
+import { logger } from '../config/logger';
 let user: any;
 try {
     user = yaml.load(fs.readFileSync('data/user/user.yaml', 'utf8')) || {};
@@ -18,9 +18,9 @@ export const updateUserInfo = async (key: string, value: any) => {
     user = { ...user, [key]: value };
     fs.writeFile('data/user/user.yaml', yaml.dump(user), (err) => {
         if (err) {
-            console.error('Error writing user.yaml:', err);
+            logger.error('Error writing user.yaml:', err);
         } else {
-            console.log('user.yaml updated successfully');
+            logger.debug('user.yaml updated successfully');
         }
     });
 }

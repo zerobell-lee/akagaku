@@ -1,6 +1,7 @@
 import fs from 'fs';
 import { ChatMessageHistory } from 'langchain/memory';
 import { HumanMessage, AIMessage, SystemMessage, BaseMessage, FunctionMessage, ToolMessage } from '@langchain/core/messages';
+import { logger } from '../config/logger';
 
 // 복원 함수
 const reconstructFromLC = (msg: any): BaseMessage => {
@@ -48,9 +49,9 @@ export const updateChatHistory = async (character_name: string, history: ChatMes
 
     fs.writeFile(`${directoryPath}/chat_history.json`, JSON.stringify(messages), (err) => {
         if (err) {
-            console.error('chat_history.json을 쓰는 중 오류 발생:', err);
+            logger.error('chat_history.json을 쓰는 중 오류 발생:', err);
         } else {
-            console.log('chat_history.json이 성공적으로 업데이트되었습니다');
+            logger.debug('chat_history.json이 성공적으로 업데이트되었습니다');
         }
     });
 }
