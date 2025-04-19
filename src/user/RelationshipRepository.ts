@@ -1,0 +1,50 @@
+import fs from 'fs';
+import yaml from 'js-yaml';
+
+
+// Start Generation Here
+export type Relationship = {
+    character: string;
+    affection_to_user: number;
+    attitude_to_user: string;
+}
+const character_relationships: Relationship[] = (() => {
+    const filePath = 'data/user/relationship.yaml';
+    if (fs.existsSync(filePath)) {
+        return yaml.load(fs.readFileSync(filePath, 'utf8')) as Relationship[];
+    } else {
+        return [];
+    }
+})();
+
+
+export const getCharacterRelationships = (character_name: string): Relationship => {
+    let character_relationship = character_relationships.find((relationship: Relationship) => relationship.character === character_name);
+    if (!character_relationship) {
+        character_relationship = {
+            character: character_name,
+            affection_to_user: 50,
+            attitude_to_user: "neutral"
+        };
+        character_relationships.push(character_relationship);
+    }
+    return character_relationship;
+};
+
+export const updateCharacterRelationships = async (character_name: string, affection_to_user: number, attitude_to_user: string) => {
+    const character_relationship = character_relationships.find((relationship: Relationship) => relationship.character === character_name);
+    if (!character_relationship) {
+        throw new Error(`Character relationship not found for ${character_name}`);
+    }
+    character_relationship.affection_to_user = affection_to_user;
+    character_relationship.attitude_to_user = attitude_to_user;
+    fs.writeFile('data/user/relationship.yaml', yaml.dump(character_relationships), (err) => {
+        if (err) {
+            console.error('Error writing relationship.yaml:', err);
+        } else {
+            console.log('relationship.yaml updated successfully');
+        }
+    });
+    return character_relationship;
+};
+

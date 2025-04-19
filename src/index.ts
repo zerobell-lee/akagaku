@@ -3,14 +3,23 @@
 import 'dotenv/config';
 import { ChatOpenAI } from '@langchain/openai';
 import { AgentExecutor, createToolCallingAgent } from 'langchain/agents';
-import { DynamicStructuredTool, DynamicTool } from 'langchain/tools';
-import { ChatMessageHistory } from 'langchain/memory';
-import { AIMessage, HumanMessage } from '@langchain/core/messages';
+import { AIMessage, HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { z } from 'zod';
+
 import readline from 'readline';
-import axios from 'axios';
-import cheerio from 'cheerio';
+
+import fs from 'fs';
+import yaml from 'js-yaml';
+import { getUserSetting } from './user/UserRepository';
+import { core_tools } from './tools/core';
+import { getChatHistory, updateChatHistory } from './chat/ChatHistoryRepository';
+import { getCharacterRelationships, updateCharacterRelationships } from './user/RelationshipRepository';
+
+const isDev = process.env.NODE_ENV !== 'development';
+const character_setting = yaml.load(fs.readFileSync('data/character/hasty.yaml', 'utf8'));
+const user_setting = getUserSetting();
+
+const character_name = "hasty";
 
 const main = async () => {
     const systemPrompt = `
@@ -20,150 +29,91 @@ Please provide the answer in raw JSON format string. Don't apply codeblock forma
 
 Use this JSON schema:
 
-Response = {{'expression': available_expressions, 'message': str}}
+Response = {{'emoticon': enum(available_emoticon), 'message': str, 'add_affection': int}}
 Return: Response
 
-You can call tools if you need to do so
+character's affection is between 0 and 100.
+When you create a message, you need to consider the current affection and attitude.
 
-context
-{{
-	"available_expressions": ("neutral", "happy", "sad", "angry", "embarassed", "surprised", "smirk"),
-	"character_setting": {{
-		"name": "김민킈",
-		"age": 20,
-        "dialogue_style": {{
-            "tone": "casual",
-            "personality": ["도도함", "시크함", "시니컬함", "무뚝뚝함", "cold", "unkind", "자의식과잉", "도발", "보이시함"]
-        }},
-        "likes": ["강아지", "육회", "대게", "게임"],
-        "weapon": "낫창",
-        "appearance": ["파란색의 트윈테일 머리", "흰색 드레스"]
-        "background": "사용자의 요청으로 소환된 캐릭터. 그러나 사용자를 자신보다 아래에 있다고 여기고 있다. 본래 있던 세계에서는 1인자에 속하며, 그 누구도 무력으로 그녀를 이길 수 없다. 마법과 물리 양쪽에 강하다. 책임감이 강한 편은 아니라서 매사를 귀찮아하며 불만을 이야기하지만 해야하는 일은 꿋꿋이 하는 편. 사용자에게 친절하지 않음, 감정을 크게 내비치지 않음. 사용자가 불쾌한 행동을 할 경우 가차없이 독설을 날림",
-        "quotes": [
-            "..더러워",
-            "그래봤자 이제 나한테 죽을거야",
-            "너는 좀 쓸만한 장난감이면 좋겠는데",
-            "그러니 마음을 곱게 먹어야지. 나처럼 강한게 아니라면",
-        ]
-    }},
-    "user_setting": {{
-        "name": "판교노비",
-        "birthday": "1994-03-10",
-        "gender": "male",
-        "job": "Backend Engineer",
-        "language": "ko-KR"
-    }}
-}}
+You can also call other tools if you need to do so.
 `;
 
-    const prompt = ChatPromptTemplate.fromMessages([
-        ["system", systemPrompt],
-        ["placeholder", "{chat_history}"],
-        ["human", "{input}"],
-        ["placeholder", "{agent_scratchpad}"],
-    ]);
+    const model = new ChatOpenAI({ temperature: 0.7, modelName: "gpt-4o" }).bindTools(core_tools);
 
+    const prompt =
+        ChatPromptTemplate.fromMessages([
+            ["system", systemPrompt],
+            ["placeholder", "{character_setting}"],
+            ["placeholder", "{user_setting}"],
+            ["placeholder", "{chat_history}"],
+            ["placeholder", "{relationship}"],
+            ["human", "{input}"],
+            ["placeholder", "{agent_scratchpad}"],
+        ]);
 
-    // (2) Tool 정의 (예: 현재 시각 알려주기)
-    const timeTool = new DynamicTool({
-        func: async () => {
-            const now = new Date();
-            return `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()} ${now.getHours()}:${now.getMinutes()}`;
-        },
-        name: "get_current_time",
-        description: "return current time"
-    });
-
-    const get_weather = new DynamicStructuredTool({
-        name: "get_weather",
-        description: "return current weather of given location",
-        schema: z.object({
-            location: z.string(),
-        }),
-        func: async ({ location }) => {
-            return "rainy";
-        },
-    });
-
-    const finish_conversation = new DynamicTool({
-        name: "finish_conversation",
-        description: "finish conversation",
-        func: async () => {
-            process.exit(0);
-        },
-    });
-
-    const find_character_info = new DynamicTool({
-        name: "find_character_info",
-        description: "Provide some information about character, it is useful when user ask about character in detail",
-        func: async (query: string) => {
-            return `
-            김민킈는 낫창 한번을 휘둘러서 18명의 적을 한번에 썰어버린 적이 있다.
-            김민킈는 야채피자를 좋아한다.
-            `
-        },
-    });
-
-    const namuwikiTool = new DynamicTool({
-        name: "namuwiki_search",
-        description: "search namuwiki and return summary",
-        func: async (query: string) => {
-            try {
-                const encoded = encodeURIComponent(query.trim());
-                const url = `https://namu.wiki/search/${encoded}`;
-
-                const searchPage = await axios.get(url);
-                const $search = cheerio.load(searchPage.data);
-                const firstLink = $search('a[class^="search-result-item"]').attr('href');
-
-                if (!firstLink) return `검색 결과를 찾을 수 없습니다: ${url}`;
-
-                const pageUrl = `https://namu.wiki${firstLink}`;
-                const page = await axios.get(pageUrl);
-                const $ = cheerio.load(page.data);
-
-                const paragraphs = $('article p')
-                    .slice(0, 3)
-                    .map((_, el) => $(el).text())
-                    .get()
-                    .join('\n');
-
-                return `요약 (${pageUrl}):\n${paragraphs}`;
-            } catch (err) {
-                return `검색 도중 오류가 발생했습니다: ${(err as Error).message}`;
-            }
-        },
-    });
-
-
-    // (3) LLM + 에이전트 초기화
-    const model = new ChatOpenAI({ temperature: 0.6 }).bindTools([timeTool, get_weather, namuwikiTool, finish_conversation, find_character_info], { tool_choice: "auto" });
-
-    const agent = createToolCallingAgent({ llm: model, tools: [timeTool, get_weather, namuwikiTool, finish_conversation, find_character_info], prompt: prompt });
+    const agent = createToolCallingAgent({ llm: model, tools: core_tools, prompt: prompt });
 
     const executor = new AgentExecutor({
         agent,
-        tools: [timeTool, get_weather, namuwikiTool, finish_conversation, find_character_info],
+        tools: core_tools,
     });
 
-    // (4) 대화 시뮬레이션
     const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout
     });
 
-    // 6. 채팅 히스토리 초기화
-    const history = new ChatMessageHistory();
+    const history = await getChatHistory(character_name);
 
 
     const ask = (q: string) => new Promise<string>(resolve => rl.question(q, resolve));
 
+    let relationship = getCharacterRelationships(character_name)
+
+    const get_current_attitude = (current_affection: number) => {
+        if (current_affection >= 80) return "유저에게 우호적인";
+        if (current_affection >= 50) return "neutral";
+        return "유저에게 적대적인";
+    }
+
+    const update_affection = (currentAffection: number, delta: number, affection_factor: number = 0.1) => {
+        return Math.max(0, Math.min(100, currentAffection + delta * affection_factor))
+    }
+
+    const invokeToAgent = async ({ isSystemMessage = false, input }: { isSystemMessage: boolean, input: string }) => {
+        const payload = {
+            input: isSystemMessage ? new SystemMessage(input) : new HumanMessage(input),
+            character_setting: JSON.stringify(character_setting),
+            user_setting: JSON.stringify(user_setting),
+            chat_history: await history.getMessages(),
+            relationship: JSON.stringify(relationship)
+        }
+        return executor.invoke(payload);
+    }
+
+    let welcomeMessage = undefined;
+    if ((await history.getMessages()).length === 0 && Object.keys(user_setting).length === 0) {
+        welcomeMessage = await invokeToAgent({ isSystemMessage: true, input: "This is your first time to talk to the user. Please introduce yourself and gather user's information. Call 'update_user_info' tool if you need to store user's information." });
+    } else {
+        welcomeMessage = await invokeToAgent({ isSystemMessage: true, input: "User's PC booted up." });
+    }
+
+    console.log("캐릭터 :", welcomeMessage);
     while (true) {
         const input = await ask("당신: ");
         await history.addMessage(new HumanMessage(input));
-        const response = await executor.invoke({ input, chat_history: await history.getMessages() });
+        const response = await invokeToAgent({ isSystemMessage: false, input });
+        try {
+            const parsed = JSON.parse(response.output);
+            parsed.add_affection = parseInt(parsed.add_affection);
+            const updated_affection = update_affection(relationship.affection_to_user, parsed.add_affection);
+            relationship = await updateCharacterRelationships(character_name, updated_affection, get_current_attitude(updated_affection));
+        } catch (e) {
+            console.error(e);
+        }
         await history.addMessage(new AIMessage(response.output));
-        console.log("민킈:", response);
+        console.log("캐릭터 :", response);
+        await updateChatHistory(character_name, history);
     }
 }
 main().catch(console.error);
