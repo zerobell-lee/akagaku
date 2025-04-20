@@ -1,0 +1,15 @@
+head:
+  path: "M 10 10 A 10 10 0 0 1 20 20"
+  available_action:
+    - touch
+    - click
+chest:
+  path: "M 10 10 A 10 10 0 0 1 20 20"
+  available_action:
+    - touch
+    - click
+weapon:
+  path: "M 10 10 A 10 10 0 0 1 20 20"
+  available_action:
+    - touch
+    - click

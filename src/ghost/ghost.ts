@@ -7,7 +7,8 @@ import { SystemMessage, HumanMessage, AIMessage } from "@langchain/core/messages
 import { getChatHistory, updateChatHistory } from "../chat/ChatHistoryRepository";
 import { getCharacterRelationships, updateCharacterRelationships } from "../user/RelationshipRepository";
 import { getUserSetting } from "../user/UserRepository";
-import { getCharacterSetting } from "../character/CharacterRepository";
+import { CharacterSettingLoader } from "../character/CharacterRepository";
+import { logger } from "../config/logger";
 
 interface GhostResponse {
     emoticon: string;
@@ -60,7 +61,7 @@ export default class Ghost {
             tools: core_tools,
         });
 
-        this.character_setting = getCharacterSetting(character_name);
+        this.character_setting = CharacterSettingLoader.getCharacterSetting(character_name);
     }
 
     private update_affection = (currentAffection: number, delta: number, affection_factor: number = 0.1) => {
@@ -68,9 +69,7 @@ export default class Ghost {
     }
 
     private get_current_attitude = (current_affection: number) => {
-        if (current_affection >= 80) return "유저에게 우호적인";
-        if (current_affection >= 50) return "neutral";
-        return "유저에게 적대적인";
+        return CharacterSettingLoader.calcAttitude(this.character_name, current_affection);
     }
 
     async isNewRendezvous() {

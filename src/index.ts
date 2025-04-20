@@ -7,7 +7,7 @@ import { logger } from './config/logger';
 import Ghost from './ghost/ghost';
 
 const isDev = process.env.NODE_ENV !== 'development';
-const character_name = "hasty";
+const character_name = "minkee";
 
 const main = async () => {
     const rl = readline.createInterface({

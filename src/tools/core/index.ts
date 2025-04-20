@@ -1,9 +1,6 @@
 import { DynamicStructuredTool, DynamicTool } from "langchain/tools";
-import axios from "axios";
-import cheerio from "cheerio";
 import { z } from "zod";
 import { updateUserInfo } from "../../user/UserRepository";
-
 
 const timeTool = new DynamicTool({
     func: async () => {
@@ -39,37 +36,6 @@ const chit_chat = new DynamicTool({
     },
 });
 
-const namuwikiTool = new DynamicTool({
-    name: "namuwiki_search",
-    description: "search namuwiki and return summary",
-    func: async (query: string) => {
-        try {
-            const encoded = encodeURIComponent(query.trim());
-            const url = `https://namu.wiki/search/${encoded}`;
-
-            const searchPage = await axios.get(url);
-            const $search = cheerio.load(searchPage.data);
-            const firstLink = $search('a[class^="search-result-item"]').attr('href');
-
-            if (!firstLink) return `검색 결과를 찾을 수 없습니다: ${url}`;
-
-            const pageUrl = `https://namu.wiki${firstLink}`;
-            const page = await axios.get(pageUrl);
-            const $ = cheerio.load(page.data);
-
-            const paragraphs = $('article p')
-                .slice(0, 3)
-                .map((_, el) => $(el).text())
-                .get()
-                .join('\n');
-
-            return `요약 (${pageUrl}):\n${paragraphs}`;
-        } catch (err) {
-            return `검색 도중 오류가 발생했습니다: ${(err as Error).message}`;
-        }
-    },
-});
-
 const update_user_info = new DynamicStructuredTool({
     name: "update_user_info",
     description: "Update user info. When you got any new information about user, you can update user info using this tool.",
@@ -82,4 +48,4 @@ const update_user_info = new DynamicStructuredTool({
     },
 });
 
-export const core_tools = [timeTool, get_weather, namuwikiTool, chit_chat, update_user_info];
+export const core_tools = [timeTool, get_weather, chit_chat, update_user_info];
