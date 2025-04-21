@@ -2,14 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  body {
-    @apply bg-gray-900 text-white;
-  }
+.speech-bubble {
+	display: block;
+	position: fixed;
+	background: #f7f7f7;
+	border-radius: .4em;
+	width: calc(100% - 24px);
+	height: calc(100% - 24px);
+	top: 0;
+	left: 0;
+	box-sizing: border-box;
+	font-family: "Single Day", cursive;
+	font-weight: 400;
+	font-style: normal;
+	overflow: hidden;
 }
 
-@layer components {
-  .btn-blue {
-    @apply text-white font-bold px-4 py-2 rounded bg-blue-600 hover:bg-blue-500;
-  }
+.speech-bubble:after {
+	content: '';
+	position: absolute;
+	right: 0;
+	top: 50%;
+	width: 24px;
+	height: 24px;
+	border: 12px solid transparent;
+	border-left-color: #f7f7f7;
+	border-right: 0;
+	border-top: 0;
+	margin-top: -12px;
+	margin-right: -24px;
+}
+
+img {
+	pointer-events: none;
+	user-select: none;
 }

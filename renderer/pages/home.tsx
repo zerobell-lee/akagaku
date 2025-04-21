@@ -1,34 +1,52 @@
-import React from 'react'
-import Head from 'next/head'
-import Link from 'next/link'
-import Image from 'next/image'
+import React, { useEffect, useState, useRef } from 'react'
+import Character, { Emoticon } from '../components/Character'
+import SpeechBubble from '../components/SpeechBubble'
+
+interface GhostResponse {
+  emoticon: string;
+  message: string;
+  add_affection: number;
+  error?: string;
+}
+
+interface TouchableArea {
+  bodyPart: string;
+  paths: string[];
+  action_event: {
+    touch: string|undefined;
+    click: string|undefined;
+  };
+}
+
+interface CharacterProps {
+  touchable_areas: TouchableArea[];
+}
 
 export default function HomePage() {
+  const [characterEmoticon, setCharacterEmoticon] = useState<Emoticon>("neutral")
+  const [character, setCharacter] = useState<CharacterProps|undefined>(undefined)
+
+  useEffect(() => {
+    window.ipc.on('character_loaded', (character: CharacterProps) => {
+      console.log(character)
+      setCharacter(character)
+    })
+    window.ipc.on('ghost-message', (message: GhostResponse) => {
+      if (message.error) {
+        setCharacterEmoticon("angry")
+      } else {
+        setCharacterEmoticon(message.emoticon as Emoticon)
+      }
+    })
+    window.ipc.send('user-action', 'APP_STARTED');
+  }, [])
+
   return (
     <React.Fragment>
-      <Head>
-        <title>Home - Nextron (with-tailwindcss)</title>
-      </Head>
-      <div className="grid grid-col-1 text-2xl w-full text-center">
-        <div>
-          <Image
-            className="ml-auto mr-auto"
-            src="/images/logo.png"
-            alt="Logo image"
-            width={256}
-            height={256}
-          />
+      <div className="absolute right-0 bottom-0">
+        <div className="flex flex-row">
+          {<Character emoticon={characterEmoticon}/>}
         </div>
-        <span>⚡ Electron ⚡</span>
-        <span>+</span>
-        <span>Next.js</span>
-        <span>+</span>
-        <span>tailwindcss</span>
-        <span>=</span>
-        <span>💕 </span>
-      </div>
-      <div className="mt-1 w-full flex-wrap flex justify-center">
-        <Link href="/next">Go to next page</Link>
       </div>
     </React.Fragment>
   )

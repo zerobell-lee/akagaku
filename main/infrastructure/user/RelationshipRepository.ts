@@ -1,7 +1,7 @@
-import fs from 'fs';
-import yaml from 'js-yaml';
 import { logger } from '../config/logger';
+import Store from 'electron-store'
 
+const relationshipStore = new Store({ name: 'relationship' });
 
 // Start Generation Here
 export type Relationship = {
@@ -10,9 +10,8 @@ export type Relationship = {
     attitude_to_user: string;
 }
 const character_relationships: Relationship[] = (() => {
-    const filePath = 'data/user/relationship.yaml';
-    if (fs.existsSync(filePath)) {
-        return yaml.load(fs.readFileSync(filePath, 'utf8')) as Relationship[];
+    if (relationshipStore.has('relationship')) {
+        return relationshipStore.get('relationship') as Relationship[];
     } else {
         return [];
     }
@@ -39,13 +38,7 @@ export const updateCharacterRelationships = async (character_name: string, affec
     }
     character_relationship.affection_to_user = affection_to_user;
     character_relationship.attitude_to_user = attitude_to_user;
-    fs.writeFile('data/user/relationship.yaml', yaml.dump(character_relationships), (err) => {
-        if (err) {
-            logger.error('Error writing relationship.yaml:', err);
-        } else {
-            logger.debug('relationship.yaml updated successfully');
-        }
-    });
+    relationshipStore.set('relationship', character_relationships);
     return character_relationship;
 };
 

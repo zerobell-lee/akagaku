@@ -3,8 +3,8 @@
 import 'dotenv/config';
 
 import readline from 'readline';
-import { logger } from './config/logger';
-import Ghost from './ghost/ghost';
+import { logger } from '../main/infrastructure/config/logger';
+import Ghost from '../main/domain/ghost/ghost';
 
 const isDev = process.env.NODE_ENV !== 'development';
 const character_name = "minkee";

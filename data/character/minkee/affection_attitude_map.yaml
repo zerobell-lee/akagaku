@@ -1,6 +1,6 @@
 conditions:
   - if_above: 80
-    attitude: "유저에게 우호적"
+    attitude: "유저에게 호의적인"
   - if_above: 45
     attitude: "neutral"
   - if_above: 0

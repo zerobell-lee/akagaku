@@ -1,6 +1,6 @@
-appId: com.example.nextron
-productName: My Nextron App
-copyright: Copyright © 2018 Yoshihide Shiono
+appId: com.zerobell.akagaku
+productName: Akagaku
+copyright: Copyright © 2025 zerobell-lee
 directories:
   output: dist
   buildResources: resources
@@ -9,4 +9,5 @@ files:
     filter:
       - package.json
       - app
+      - data/**/*
 publish: null
