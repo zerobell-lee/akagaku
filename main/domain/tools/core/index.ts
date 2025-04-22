@@ -2,36 +2,53 @@ import { DynamicStructuredTool, DynamicTool } from "langchain/tools";
 import { z } from "zod";
 import { updateUserInfo } from "../../../infrastructure/user/UserRepository";
 import { shell } from "electron";
-
-const timeTool = new DynamicTool({
-    func: async () => {
-        const now = new Date();
-        return `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()} ${now.getHours()}:${now.getMinutes()}`;
-    },
-    name: "get_current_time",
-    description: "return current time"
-});
+import { configRepository } from "../../../infrastructure/config/ConfigRepository";
 
 const get_weather = new DynamicStructuredTool({
     name: "get_weather",
-    description: "return current weather of given location",
+    description: "return current weather of given location. It takes so long time to get the weather of user's location. So, use this tool only when user asked you about weather.",
     schema: z.object({
-        location: z.string(),
+        latitude: z.number(),
+        longitude: z.number(),
     }),
-    func: async ({ location }) => {
+    func: async ({ latitude, longitude }) => {
+        const apiKey = await configRepository.getConfig("openweathermapApiKey");
+        if (!apiKey || apiKey === "") {
+            return "OpenWeatherMap API key is not set. You need to explain user to set it in the config by himself.";
+        }
+        const response = await fetch(`http://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${apiKey}&units=metric`);
+        const data = await response.json();
         return `
-        location: Seoul
-        temperature: 18
+        temperature: ${data.main.temp}
         unit: Celsius
-        humidity: 58%
-        weather: sunny
+        humidity: ${data.main.humidity}%
+        weather: ${data.weather[0].main}, ${data.weather[0].description}
         `;
     },
 });
 
-const chit_chat = new DynamicTool({
-    name: "chit_chat",
-    description: "Provide episodes or topics to chit chat with user. Don't use this tool if user met you for the first time.",
+const get_geolocation = new DynamicStructuredTool({
+    name: "get_geolocation",
+    description: "return current geolocation of user. Use this only when user asked you about it. Unless, it is violating the guidelines.",
+    schema: z.object({
+        location: z.string(),
+    }),
+    func: async ({ location }) => {
+        const apiKey = await configRepository.getConfig("openweathermapApiKey");
+        if (!apiKey || apiKey === "") {
+            return "OpenWeatherMap API key is not set. You need to explain user to set it in the config by himself.";
+        }
+        const response = await fetch(`http://api.openweathermap.org/geo/1.0/direct?q=${location}&limit=5&appid=${apiKey}`);
+        const data = await response.json();
+        return `
+        location: ${data[0].name}, latitude: ${data[0].lat}, longitude: ${data[0].lon}
+        `;
+    },
+});
+
+const pickChitChatTopic = new DynamicTool({
+    name: "pickChitChatTopic",
+    description: "Pick one of the topics to chit chat with user. Don't use this tool if user met you for the first time. And only use this tool if user asked you to chit chat, or system ordered you to do so. It is not necessary to use this tool every time you chit chat with user.",
     func: async () => {
         const topics = [
             "캐릭터는 한 때 자캐대회라 불리는 대회를 개최한 적이 있으며, 그곳에서 무소불위의 권력을 휘둘렀다. 지금 생각해보면 피곤하기도 하지만, 좋았던 경험으로 남아있다",
@@ -47,7 +64,23 @@ const chit_chat = new DynamicTool({
 
 const update_user_info = new DynamicStructuredTool({
     name: "update_user_info",
-    description: "Update user info. When you got any new information about user, you can update user info using this tool.",
+    description: `When you got new important information about user (such as user's name, age, etc.),
+    you can update user info using this tool. NEVER use this tool if you got any information about user's daily life or trivial information. It is waste of time and memory to update user info every time.
+    For example, these types of information are recommended to be updated:
+    - user's name
+    - user's age
+    - user's location
+    - user's nickname preference
+    - user's occupation
+    - user's hobby
+
+    Otherwise, these types of information are NOT recommended to be updated:
+    - user's affection score
+    - user's attitude
+    - user's current time
+    - user's last action
+    - user's feelings
+    `,
     schema: z.object({
         key: z.string(),
         value: z.string(),
@@ -82,12 +115,27 @@ const open_app = new DynamicTool({
     },
 });
 
-const ingsfriends_open = new DynamicTool({
-    name: "ingsfriends_open",
-    description: "잉친쓰를 열 수 있는 tool",
+const openUrl = new DynamicTool({
+    name: "openUrl",
+    description: "Open the url in the browser or shell command",
+    func: async (url: string) => {
+        shell.openExternal(url);
+        return `Opened ${url}`;
+    },
+});
+
+const getBookmarks = new DynamicTool({
+    name: "getBookmarks",
+    description: "Get bookmarks of the user",
     func: async () => {
-        shell.openExternal('https://cafe.naver.com/ingsfriends');
-        return "잉친쓰를 열었습니다.";
+        return `
+        - 네이버 : https://naver.com
+        - 구글 : https://google.com
+        - 유튜브 : https://youtube.com
+        - 잉친쓰(우정잉 팬카페) : https://cafe.naver.com/ingsfriends
+        - 블로그 : https://seolin.tistory.com
+        - 우정잉 방송 : https://play.sooplive.co.kr/nanajam/283260760
+        `;
     },
 });
 
@@ -105,13 +153,4 @@ const get_schedule = new DynamicTool({
     },
 });
 
-const open_friendshiping_streaming = new DynamicTool({
-    name: "open_friendshiping_streaming",
-    description: "우정잉 방송을 열 수 있는 tool",
-    func: async () => {
-        shell.openExternal('https://play.sooplive.co.kr/nanajam/283260760');
-        return "우정잉 방송을 열었습니다.";
-    },
-});
-
-export const core_tools = [timeTool, get_weather, chit_chat, update_user_info, get_installed_apps, open_app, ingsfriends_open, open_friendshiping_streaming, get_schedule];
+export const core_tools = [get_weather, get_geolocation, pickChitChatTopic, update_user_info, get_installed_apps, open_app, openUrl, getBookmarks, get_schedule];

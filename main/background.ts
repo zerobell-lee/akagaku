@@ -1,11 +1,19 @@
 import path from 'path'
-import { app, BrowserWindow, dialog, ipcMain, screen, Tray } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, protocol, screen, Tray } from 'electron'
 import serve from 'electron-serve'
 import { createWindow } from './helpers'
-import Ghost, { ApiKeyNotDefinedError } from './domain/ghost/ghost'
+import Ghost from './domain/ghost/ghost'
 import { configRepository } from './infrastructure/config/ConfigRepository'
-import { TouchableArea } from './infrastructure/character/CharacterRepository'
+import { CharacterSettingLoader } from './infrastructure/character/CharacterRepository'
+import fs from 'fs'
+import { CharacterAppearance, CharacterProperties } from '@shared/types'
+import dotenv from 'dotenv'
+
 const isProd = process.env.NODE_ENV === 'production'
+
+if (!isProd) {
+  dotenv.config();
+}
 
 if (isProd) {
   serve({ directory: 'app' })
@@ -18,7 +26,7 @@ const anthropicApiKey = configRepository.getConfig('anthropicApiKey') || "";
 const llmService = configRepository.getConfig('llmService') || "openai";
 const selectedModel = configRepository.getConfig('selectedModel') || "gpt-4o-mini";
 const temperature = configRepository.getConfig('temperature') || 1;
-const characterName = configRepository.getConfig('characterName') || "minkee";
+const characterName = configRepository.getConfig('characterName') as string || "minkee";
 
 const ghost = new Ghost(
   {
@@ -27,25 +35,21 @@ const ghost = new Ghost(
     modelName: selectedModel as string,
     openaiApiKey: openaiApiKey as string,
     anthropicApiKey: anthropicApiKey as string,
-    temperature: temperature as number
+    temperature: temperature as number,
   }
 )
-
-interface CharacterProps {
-  touchable_areas: TouchableArea[];
-}
 
 console.log("ghost", ghost);
 
 app.commandLine.appendSwitch('force-device-scale-factor', '1');
 
-const createGhostWindow = ({ width, height }: { width: number, height: number }) => {
+const createGhostWindow = (characterAppearance: CharacterAppearance) => {
   const screenWidth = screen.getPrimaryDisplay().workAreaSize.width
   const screenHeight = screen.getPrimaryDisplay().workAreaSize.height
 
   const ghostWindow = createWindow('main', {
-    width,
-    height,
+    width: characterAppearance.character_width,
+    height: characterAppearance.character_height,
     transparent: true,
     frame: false,
     resizable: false,
@@ -57,10 +61,10 @@ const createGhostWindow = ({ width, height }: { width: number, height: number })
   })
 
   ghostWindow.setBounds({
-    x: Math.floor(screenWidth * 0.8) - width,
-    y: screenHeight - height,
-    width: width,
-    height: height,
+    x: Math.floor(screenWidth * 0.8) - characterAppearance.character_width,
+    y: screenHeight - characterAppearance.character_height,
+    width: characterAppearance.character_width,
+    height: characterAppearance.character_height,
   })
 
   return ghostWindow
@@ -78,24 +82,52 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
 (async () => {
   await app.whenReady()
 
-  const ghostSize = ghost.getCharacterSize();
-  const mainWindow = createGhostWindow({ width: ghostSize.width, height: ghostSize.height })
+  protocol.handle('local-resource', async (request) => {
+    const url = request.url.replace('local-resource://', '')
+    const decodedUrl = decodeURI(url)
+    try {
+      const filePath = path.join(app.getAppPath(), '/data', decodedUrl)
+      const data = fs.readFileSync(filePath)
+
+      // MIME 타입 결정
+      const ext = path.extname(filePath).toLowerCase()
+      let mimeType = 'application/octet-stream'
+      if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg'
+      else if (ext === '.png') mimeType = 'image/png'
+      else if (ext === '.gif') mimeType = 'image/gif'
+
+      const blob = new Blob([data], { type: mimeType })
+      return new Response(blob)
+    } catch (error) {
+      console.error('Failed to handle protocol', error)
+      return new Response('File not found', { status: 404 })
+    }
+  })
+
+  const characterAppearance = CharacterSettingLoader.getCharacterAppearance(characterName);
+  const mainWindow = createGhostWindow(characterAppearance)
+
+  loadUrlOnBrowserWindow(mainWindow, 'home')
+
   const tray = new Tray(path.join(__dirname, '../resources/icon.ico'))
   tray.setToolTip('Akagaku')
   tray.on('click', () => {
     mainWindow.show()
   })
-
-  loadUrlOnBrowserWindow(mainWindow, 'home')
   // mainWindow.webContents.openDevTools()
-
-  console.log(ghost.getTouchableAreas())
 
   let userChatInputWindow: BrowserWindow | null = null;
   let configWindow: BrowserWindow | null = null;
   let speechBubbleWindow: BrowserWindow | null = null;
 
   let ghostIsProcessingMessage = false;
+
+  let startMouse = null;
+  let startWindow: { x: number, y: number } | null = null;
+
+  let appExitTimeout: NodeJS.Timeout | null = null;
+  let chitChatTimeout: NodeJS.Timeout | null = null;
+  let isAppExiting = false;
 
   const sendGhostMessage = async (isSystemMessage: boolean, input: string) => {
     ghostIsProcessingMessage = true;
@@ -105,7 +137,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
       const screenHeight = screen.getPrimaryDisplay().workAreaSize.height
       speechBubbleWindow = createWindow('speech-bubble', {
         width: 500,
-        height: ghostSize.height,
+        height: characterAppearance.character_height,
         transparent: true,
         frame: false,
         resizable: false,
@@ -117,18 +149,18 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
         },
       })
       loadUrlOnBrowserWindow(speechBubbleWindow, 'speechBubblePage')
-      
+
       if (mainWindow.getBounds().x < screenWidth / 2) {
         speechBubbleWindow.setBounds({
           width: 500,
-          height: ghostSize.height,
+          height: characterAppearance.character_height,
           x: mainWindow.getBounds().x + 550,
           y: mainWindow.getBounds().y,
         })
       } else {
         speechBubbleWindow.setBounds({
           width: 500,
-          height: ghostSize.height,
+          height: characterAppearance.character_height,
           x: mainWindow.getBounds().x - 450,
           y: mainWindow.getBounds().y,
         })
@@ -141,18 +173,21 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     try {
       speechBubbleWindow.webContents.send('ghost-message-loading', true)
       const response = await ghost.invoke({ isSystemMessage, input })
+      if (isAppExiting && appExitTimeout) {
+        clearTimeout(appExitTimeout)
+        appExitTimeout = null;
+      }
       speechBubbleWindow.webContents.send('ghost-message', response)
       mainWindow.webContents.send('ghost-message', response)
       ghostIsProcessingMessage = false;
     } catch (error) {
       console.error(error)
-      if (error instanceof ApiKeyNotDefinedError) {
-        speechBubbleWindow.webContents.send('ghost-message-loading', false)
-        speechBubbleWindow.webContents.send('ghost-message', { error: error.message })
-        mainWindow.webContents.send('ghost-message', { error: error.message })        
-      }
+      speechBubbleWindow.webContents.send('ghost-message-loading', false)
+      speechBubbleWindow.webContents.send('ghost-message', { error: error })
+      mainWindow.webContents.send('ghost-message', { error: error })
       ghostIsProcessingMessage = false;
     }
+    resetChitChatTimeout();
   }
 
   const isSpeechBubbleOpen = () => {
@@ -162,6 +197,19 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
   ipcMain.on('user-action', async (event, arg) => {
     console.log(arg)
     if (arg === 'APP_STARTED') {
+      const characterProperties: CharacterProperties = {
+        character_name: characterName,
+        character_width: characterAppearance.character_width,
+        character_height: characterAppearance.character_height,
+        graphics: characterAppearance.graphics.map(graphic => ({
+          emoticon: graphic.emoticon,
+          imgSrc: `local-resource://character/${characterName}/images/${graphic.imgSrc}`
+        })),
+        touchable_areas: characterAppearance.touchable_areas,
+      }
+      mainWindow.webContents.send('character_loaded', characterProperties)
+    }
+    else if (arg === 'CHARACTER_LOADED') {
       let welcomeMessage = undefined;
       if (await ghost.isNewRendezvous()) {
         sendGhostMessage(true, "This is your first time to talk to the user. Please introduce yourself and gather user's information. Call 'update_user_info' tool if you need to store user's information.")
@@ -191,10 +239,14 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
       userChatInputWindow = null
     }
     else if (arg === 'APP_QUIT') {
-      sendGhostMessage(true, "User is exiting. Please say goodbye to the user.")
-      setTimeout(() => {
+      if (isAppExiting) {
+        return;
+      }
+      isAppExiting = true;
+      sendGhostMessage(true, "User is exiting. Please say goodbye to the user. Don't use any tools. User is in hurry.")
+      appExitTimeout = setTimeout(() => {
         app.quit()
-      }, 3000)
+      }, 6000)
     }
     else if (arg === 'BUBBLE_CLOSED') {
       if (isSpeechBubbleOpen() && !ghostIsProcessingMessage) {
@@ -203,67 +255,115 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
       }
     }
     else if (arg === 'REQUEST_CONFIG') {
-      configWindow?.webContents.send('config_response', { 
-        openaiApiKey: openaiApiKey,
-        anthropicApiKey: anthropicApiKey,
-        llmService: llmService,
-        selectedModel: selectedModel,
-        temperature: temperature
+      configWindow?.webContents.send('config_response', {
+        openaiApiKey: configRepository.getConfig('openaiApiKey') as string || "",
+        anthropicApiKey: configRepository.getConfig('anthropicApiKey') as string || "",
+        llmService: configRepository.getConfig('llmService') as string || "",
+        selectedModel: configRepository.getConfig('selectedModel') as string || "",
+        temperature: configRepository.getConfig('temperature') as number || 1,
+        openweathermapApiKey: configRepository.getConfig('openweathermapApiKey') as string || "",
+        chatHistoryLimit: configRepository.getConfig('chatHistoryLimit') as number || 100
       });
     }
     else if (arg === 'OPEN_CONFIG') {
-      configWindow = createWindow('config', {
-        width: 600,
-        height: 600,
-        transparent: false,
-        frame: true,
-        webPreferences: {
-          preload: path.join(__dirname, 'preload.js'),
-        },
-      })
-      loadUrlOnBrowserWindow(configWindow, 'config')
+      if (!configWindow) {
+        configWindow = createWindow('config', {
+          width: 600,
+          height: 800,
+          transparent: false,
+          frame: true,
+          webPreferences: {
+            preload: path.join(__dirname, 'preload.js'),
+          },
+        })
+        configWindow.setMenuBarVisibility(false)
+        loadUrlOnBrowserWindow(configWindow, 'config')
+        configWindow.on('close', () => {
+          configWindow = null
+        })
+      } else {
+        configWindow.show()
+      }
     }
     else if (arg === 'CLOSE_CONFIG') {
       configWindow?.close()
       configWindow = null
     }
+    else if (arg === 'DISPLAY_TEXT_COMPLETE') {
+      if (isAppExiting) {
+        if (appExitTimeout) {
+          clearTimeout(appExitTimeout)
+          appExitTimeout = null;
+        }
+        setTimeout(() => {
+          app.quit()
+        }, 3000)
+      }
+    }
+    else if (arg === 'RESET_CHAT_HISTORY') {
+      ghost.resetChatHistory()
+    }
   })
 
-  ipcMain.on('move-window', (event, { deltaX, deltaY }) => {
-    const { x, y } = mainWindow.getBounds()
-    if (Math.abs(deltaX) > 100) {
-      deltaX = 100 * Math.sign(deltaX);
+  ipcMain.on('drag-start', (event, arg) => {
+    startMouse = screen.getCursorScreenPoint()
+    const [x, y] = mainWindow.getPosition()
+    startWindow = { x, y }
+  })
+
+  ipcMain.on('move-window', (event, arg) => {
+    if (!startWindow || !startMouse) {
+      return
     }
-    mainWindow.setPosition(x + deltaX, y, false)
+    const currentMouse = screen.getCursorScreenPoint()
+    const dx = currentMouse.x - startMouse.x
+    const { newX, newY } = { newX: startWindow.x + dx, newY: startWindow.y }
+    mainWindow.setBounds({ x: newX, y: newY, width: mainWindow.getBounds().width, height: mainWindow.getBounds().height }, false)
     if (speechBubbleWindow) {
-      const { x: speechBubbleX, y: speechBubbleY } = speechBubbleWindow.getBounds()
-      speechBubbleWindow.setPosition(speechBubbleX + deltaX, speechBubbleY, false)
+      if (newX < screen.getPrimaryDisplay().workAreaSize.width / 2) {
+        speechBubbleWindow.setPosition(newX + 550, newY, false)
+      } else {
+        speechBubbleWindow.setPosition(newX - 450, newY, false)
+      }
     }
   })
 
-  ipcMain.on('save_config', (event, { openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature }) => {
-    console.log(openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature)
+  ipcMain.on('save_config', (event, { openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature, openweathermapApiKey, chatHistoryLimit }) => {
+    console.log(openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature, openweathermapApiKey)
     const previousOpenaiApiKey = configRepository.getConfig('openaiApiKey') as string || "";
     const previousAnthropicApiKey = configRepository.getConfig('anthropicApiKey') as string || "";
     const previousLlmService = configRepository.getConfig('llmService') as string || "";
     const previousSelectedModel = configRepository.getConfig('selectedModel') as string || "";
     const previousTemperature = configRepository.getConfig('temperature') as number || 1;
+    const previousOpenweathermapApiKey = configRepository.getConfig('openweathermapApiKey') as string || "";
+    const previousChatHistoryLimit = configRepository.getConfig('chatHistoryLimit') as number || 100;
+
+    let updateRequired = false;
     if (previousOpenaiApiKey !== openaiApiKey) {
       configRepository.setConfig('openaiApiKey', openaiApiKey);
-      ghost.updateExecuter({ openaiApiKey: openaiApiKey, anthropicApiKey: previousAnthropicApiKey, llmService: previousLlmService, modelName: previousSelectedModel, temperature: previousTemperature });
+      updateRequired = true;
     }
     if (previousAnthropicApiKey !== anthropicApiKey) {
       configRepository.setConfig('anthropicApiKey', anthropicApiKey);
-      ghost.updateExecuter({ openaiApiKey: previousOpenaiApiKey, anthropicApiKey: anthropicApiKey, llmService: previousLlmService, modelName: previousSelectedModel, temperature: previousTemperature });
+      updateRequired = true;
     }
     if (previousLlmService !== llmService || previousSelectedModel !== selectedModel) {
       configRepository.setConfig('llmService', llmService);
       configRepository.setConfig('selectedModel', selectedModel);
-      ghost.updateExecuter({ openaiApiKey: previousOpenaiApiKey, anthropicApiKey: previousAnthropicApiKey, llmService: llmService, modelName: selectedModel, temperature: previousTemperature });
+      updateRequired = true;
     }
     if (previousTemperature !== temperature) {
       configRepository.setConfig('temperature', temperature);
-      ghost.updateExecuter({ openaiApiKey: previousOpenaiApiKey, anthropicApiKey: previousAnthropicApiKey, llmService: llmService, modelName: selectedModel, temperature: temperature });
+      updateRequired = true;
+    }
+    if (previousOpenweathermapApiKey !== openweathermapApiKey) {
+      configRepository.setConfig('openweathermapApiKey', openweathermapApiKey);
+    }
+    if (previousChatHistoryLimit !== chatHistoryLimit) {
+      configRepository.setConfig('chatHistoryLimit', chatHistoryLimit);
+    }
+    if (updateRequired) {
+      ghost.updateExecuter({ openaiApiKey: openaiApiKey, anthropicApiKey: anthropicApiKey, llmService: llmService, modelName: selectedModel, temperature: temperature });
     }
   })
 
@@ -272,19 +372,23 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     userChatInputWindow?.close()
   })
 
-  mainWindow.webContents.send('character_loaded', {touchable_areas: ghost.getTouchableAreas()})
-
   mainWindow.on('close', () => {
     app.quit()
   })
 
   const requestCharacterToChitChat = async () => {
     if (!isSpeechBubbleOpen()) {
-      sendGhostMessage(true, "Have a chit chat with the user.")
+      sendGhostMessage(true, "5 minutes have passed. Have a chit chat with the user.")
     }
   }
 
-  setInterval(requestCharacterToChitChat, 5 * 60 * 1000)
+  const resetChitChatTimeout = () => {
+    if (chitChatTimeout) {
+      clearTimeout(chitChatTimeout)
+    }
+    chitChatTimeout = setTimeout(requestCharacterToChitChat, 5 * 60 * 1000)
+  }
+  
 })()
 
 app.on('window-all-closed', () => {

@@ -1,19 +1,18 @@
-import React, { useEffect } from 'react';
+import React  from 'react';
+import { FaGear } from "react-icons/fa6";
+import { IoChatbubbleEllipses } from "react-icons/io5";
+import { ImExit } from "react-icons/im";
 
 export const OverlayMenu = () => {
     const openChatInput = () => {
         window.ipc.send('user-action', 'CHAT_OPENED')
     }
     const handleMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
-        const initialX = event.clientX; // 드래그 시작 시 x 좌표
-        const initialY = event.clientY; // 드래그 시작 시 y 좌표
+        window.ipc.send('drag-start', null)
 
         const handleMouseMove = (moveEvent: MouseEvent) => {
-            const deltaX = moveEvent.clientX - initialX; // x 좌표의 변화량
-            const deltaY = moveEvent.clientY - initialY; // y 좌표의 변화량
+            window.ipc.send('move-window', null);
 
-            // Electron의 ipcRenderer를 사용하여 윈도우 이동
-            window.ipc.send('move-window', { deltaX, deltaY });
         };
 
         const handleMouseUp = () => {
@@ -29,15 +28,21 @@ export const OverlayMenu = () => {
 
     return (
         <div
-            className="absolute top-0 left-0 w-full bg-black bg-opacity-70 flex justify-between items-center z-10"
+            className="absolute top-0 left-0 w-full bg-black flex justify-between items-center z-10 rounded-lg py-2"
             onMouseDown={handleMouseDown}
-            style={{ userSelect: 'none' }}
+            style={{ userSelect: 'none', backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
         >
             <p className="text-white text-sm"></p>
             <div className="flex gap-2">
-                <button className="bg-white text-black px-4 py-2 rounded-md" onClick={openChatInput}>chat</button>
-                <button className="bg-white text-black px-4 py-2 rounded-md" onClick={() => window.ipc.send('user-action', 'OPEN_CONFIG')}>config</button>
-                <button className="bg-white text-black px-4 py-2 rounded-md" onClick={() => window.ipc.send('user-action', 'APP_QUIT')}>exit</button>
+                <div className="flex gap-2 w-full cursor-pointer" onClick={openChatInput}>
+                    <IoChatbubbleEllipses style={{ width: '30px', height: '30px', fill: 'white' }} />
+                </div>
+                <div className="flex gap-2 w-full cursor-pointer" onClick={() => window.ipc.send('user-action', 'OPEN_CONFIG')}>
+                    <FaGear style={{ width: '30px', height: '30px', fill: 'white' }} />
+                </div>
+                <div className="flex gap-2 w-full cursor-pointer" onClick={() => window.ipc.send('user-action', 'APP_QUIT')}>
+                    <ImExit style={{ width: '30px', height: '30px', fill: 'white' }} />
+                </div>
             </div>
         </div>
     );

@@ -11,12 +11,11 @@ import { CharacterSettingLoader } from "../../infrastructure/character/Character
 import { logger } from "../../infrastructure/config/logger";
 import { ChatMessageHistory } from "langchain/memory";
 import { ChatAnthropic } from "@langchain/anthropic";
-interface GhostResponse {
-    emoticon: string;
-    message: string;
-    add_affection: number;
-    error?: string;
-}
+import { GhostResponse } from "@shared/types";
+import { Runnable } from "@langchain/core/runnables";
+import { ChainValues } from "@langchain/core/dist/utils/types";
+import { RunnableConfig } from "@langchain/core/runnables";
+import { configRepository } from "main/infrastructure/config/ConfigRepository";
 
 export class ApiKeyNotDefinedError extends Error {
     constructor(message: string) {
@@ -28,7 +27,7 @@ export class ApiKeyNotDefinedError extends Error {
 export default class Ghost {
     private systemPrompt: string;
     private prompt: ChatPromptTemplate;
-    private executor: AgentExecutor | null;
+    private executor: Runnable<ChainValues, ChainValues, RunnableConfig<Record<string, any>>> | null;
     private character_name: string;
     private character_setting: any;
     private llmService: string | null;
@@ -54,6 +53,16 @@ export default class Ghost {
         When you create a message, consider the current affection and attitude.
         
         You can also call other tools if you need to do so. But, keep in mind you need to make a response for user's language even if you call other tools.
+
+        Additional Guidelines:
+        You'll also be given conversation context. it includes helpful information for making a response. But, don't be too much affected by the conversation context.
+        It is too weird to mention same information again and again.
+        Don't overuse irrelevant tools or information. It is waste of time and memory. It makes the conversation not natural.
+
+        For example, you only need to call 'getGeolocation' or 'getWeather' when you're asked about weather.
+        And you don't need to record every single information about user. It is too much. Nobody wants to be recorded every single information.
+
+        If you fail to follow the guidelines, you'll be blamed by system because of wasting time and memory.
         `;
         this.character_name = character_name;
 
@@ -65,6 +74,7 @@ export default class Ghost {
                 ["placeholder", "{user_setting}"],
                 ["placeholder", "{chat_history}"],
                 ["placeholder", "{relationship}"],
+                ["placeholder", "{conversation_context}"],
                 ["human", "{input}"],
                 ["placeholder", "{agent_scratchpad}"],
             ]);
@@ -103,10 +113,13 @@ export default class Ghost {
             return;
         }
 
+        this.llmService = llmService;
         const agent = createToolCallingAgent({ llm: model, tools: core_tools, prompt: this.prompt });
         this.executor = new AgentExecutor({
             agent: agent,
             tools: core_tools,
+        }).withConfig({
+            runName: "ghost"
         });
     }
 
@@ -121,6 +134,19 @@ export default class Ghost {
     async isNewRendezvous() {
         const history = await getChatHistory(this.character_name);
         return (await history.getMessages()).length === 0;
+    }
+
+    private buildConversationContext = () => {
+        const now = new Date();
+        const hours = now.getHours();
+        const minutes = now.getMinutes();
+        const amOrPm = hours >= 12 ? 'PM' : 'AM';
+        const formattedHours = hours % 12 || 12;
+        const dataTimeString = `${formattedHours}:${minutes} ${amOrPm}, ${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+        return `
+        This information in adhoc context. It is not necessary to be considered in the conversation.
+        current time : ${dataTimeString}.
+        `;
     }
 
     async invoke({ isSystemMessage = false, input }: { isSystemMessage: boolean, input: string }): Promise<GhostResponse | undefined> {
@@ -150,13 +176,16 @@ export default class Ghost {
             console.log('anthropic')
             chatHistory = (await history.getMessages()).filter((message) => message.getType() !== 'system');
         }
+
+        const conversation_context = this.buildConversationContext();
         const payload = {
             input: newMessage,
             character_setting: JSON.stringify(this.character_setting),
             user_setting: JSON.stringify(getUserSetting()),
             chat_history: chatHistory,
             available_emoticon: this.character_setting.available_emoticon || '["neutral"]',
-            relationship: JSON.stringify(relationship)
+            relationship: JSON.stringify(relationship),
+            conversation_context: conversation_context
         }
         const response = await this.executor.invoke(payload);
         history.addMessage(newMessage);
@@ -191,8 +220,9 @@ export default class Ghost {
     }
 
     private trimMessage = async (history: ChatMessageHistory) => {
+        const chatHistoryLimit = configRepository.getConfig('chatHistoryLimit') as number || 100;
         const messages = await history.getMessages();
-        const trimmed = messages.slice(-50);
+        const trimmed = messages.slice(-chatHistoryLimit);
         await history.clear();
         for (const message of trimmed) {
             await history.addMessage(message);
@@ -202,19 +232,16 @@ export default class Ghost {
 
     updateExecuter({ openaiApiKey, anthropicApiKey, llmService, modelName, temperature }: { openaiApiKey: string | null, anthropicApiKey: string | null, llmService: string | null, modelName: string | null, temperature: number }) {
         let apiKey = null;
-        if (llmService === 'openai' && openaiApiKey) {
+        if (llmService === 'openai' && openaiApiKey !== null && openaiApiKey !== "") {
             apiKey = openaiApiKey;
-        } else if (llmService === 'anthropic' && anthropicApiKey) {
+        } else if (llmService === 'anthropic' && anthropicApiKey !== null && anthropicApiKey !== "") {
             apiKey = anthropicApiKey;
         }
         this.createExecutor({llmService, modelName, apiKey, temperature});
     }
 
-    getCharacterSize() {
-        return { width: 477, height: 768 }
-    }
-
-    getTouchableAreas() {
-        return CharacterSettingLoader.getTouchableAreas(this.character_name);
+    async resetChatHistory() {
+        const history = new ChatMessageHistory();
+        await updateChatHistory(this.character_name, history);
     }
 }

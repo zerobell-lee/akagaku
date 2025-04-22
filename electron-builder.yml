@@ -10,4 +10,5 @@ files:
       - package.json
       - app
       - data/**/*
+      - resources/**/*
 publish: null

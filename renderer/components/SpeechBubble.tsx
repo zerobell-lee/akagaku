@@ -1,35 +1,35 @@
 import { useState } from "react";
 import SpreadingParagraph from "./SpreadingParagraph";
+import { LoadingSpinner } from "./LoadingSpinner";
+import { FaReply } from "react-icons/fa6";
+import { FaWindowClose } from 'react-icons/fa';
 
 interface SpeechBubbleProps {
     text: string
     onReply: () => void
     onClose: () => void
     isLoading: boolean
-    onComplete: () => void
+    isComplete: boolean
 }
 
-export default function SpeechBubble({ text, onReply, onClose, isLoading = true, onComplete }: SpeechBubbleProps) {
-    const [isComplete, setIsComplete] = useState(!isLoading);
-    const handleOnComplete = () => {
-        setIsComplete(true)
-        onComplete()
-    }
+export default function SpeechBubble({ text, onReply, onClose, isLoading = true, isComplete = false }: SpeechBubbleProps) {
     return (
         <div className="speech-bubble" style={{ userSelect: 'none' }}>
             <div className="flex justify-end mx-2">
-                <button className="text-3xl font-bold px-2 py-1 my-2 text-white rounded-md" onClick={onClose} style={{ backgroundColor: 'red' }}>X</button>
+                <div className="flex gap-2 cursor-pointer" onClick={onClose}>
+                    <FaWindowClose style={{ width: '30px', height: '30px', fill: 'rgb(112, 112, 112)' }} />
+                </div>
             </div>
             {isLoading ? (
-                <div className="loading-container">
-                    <p className="px-4 py-2 text-3xl">Loading...</p>
-                </div>
+                <LoadingSpinner />
             ) : (
-                <SpreadingParagraph onComplete={handleOnComplete} text={text} />
+                <SpreadingParagraph text={text} />
             )}
             {isComplete && (
-                <div className="reply-button-container px-4 flex flex-col">
-                    <button className="text-3xl font-bold w-full bg-blue-500 py-2 my-2 text-white rounded-md" onClick={onReply}>reply</button>                
+                <div className="reply-button-container mx-4 flex flex-col py-4 rounded-lg" style={{ backgroundColor: 'rgb(112, 112, 112)' }}> 
+                    <div className="flex gap-2 justify-center cursor-pointer" onClick={onReply}>
+                        <FaReply style={{ width: '30px', height: '30px', fill: 'white' }} />
+                    </div>
                 </div>
             )}
         </div>

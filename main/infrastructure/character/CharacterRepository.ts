@@ -3,22 +3,7 @@ import yaml from 'js-yaml';
 import { logger } from '../config/logger';
 import { app } from 'electron';
 import path from 'path';
-
-interface AffectionAttitudeMap {
-    conditions: {
-        if_above: number;
-        attitude: string;
-    }[];
-}
-
-export interface TouchableArea {
-    bodyPart: string;
-    paths: string[];
-    action_event: {
-        touch: string | undefined;
-        click: string | undefined;
-    };
-}
+import { AffectionAttitudeMap, CharacterAppearance, CharacterProperties, TouchableArea } from '@shared/types';
 
 const dataDirectory = path.join(app.getAppPath(), 'data');
 
@@ -45,13 +30,8 @@ const CharacterSettingLoader = {
         return affection_attitude_map.conditions[0].attitude;
     },
 
-    getTouchableAreas: (character_name: string): TouchableArea[] => {
-        try {
-            const touchable_areas = yaml.load(fs.readFileSync(path.join(dataDirectory, `character/${character_name}/appearance.yaml`), 'utf8')) as TouchableArea[];
-            return touchable_areas;
-        } catch (e) {
-            return [];
-        }
+    getCharacterAppearance: (character_name: string): CharacterAppearance => {
+        return yaml.load(fs.readFileSync(path.join(dataDirectory, `character/${character_name}/appearance.yaml`), 'utf8')) as CharacterAppearance;
     }
 }
 export { CharacterSettingLoader };

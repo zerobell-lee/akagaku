@@ -9,6 +9,7 @@ export type Relationship = {
     affection_to_user: number;
     attitude_to_user: string;
 }
+
 const character_relationships: Relationship[] = (() => {
     if (relationshipStore.has('relationship')) {
         return relationshipStore.get('relationship') as Relationship[];
