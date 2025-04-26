@@ -220,7 +220,9 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     else if (arg === 'CHARACTER_LOADED') {
       let welcomeMessage = undefined;
       if (ghost.isNewRendezvous()) {
-        sendGhostMessage(true, "This is your first time to talk to the user. Please introduce yourself and gather user's information. Call 'update_user_info' tool if you need to store user's information.")
+        sendGhostMessage(true, `This is your first time to talk to the user.
+        Please introduce yourself and gather user's information. Call 'update_user_info' tool if you need to store user's information.
+        `)
       } else {
         sendGhostMessage(true, "User entered. say hello to the user. when you say hello, you can consider how long it has passed since last conversation by referring timestamp of last message.")
       }
@@ -310,7 +312,9 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     }
     else if (arg === 'RESET_CHAT_HISTORY') {
       ghost.resetChatHistory()
-      sendGhostMessage(true, "This is your first time to talk to the user. Please introduce yourself and gather user's information. Call 'update_user_info' tool if you need to store user's information.")
+      sendGhostMessage(true, `This is your first time to talk to the user.
+        Please introduce yourself and gather user's information. Call 'update_user_info' tool if you need to store user's information.
+        `)
     }
     else if (arg === 'OPEN_LOG') {
       if (!logsWindow) {

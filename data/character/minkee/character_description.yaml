@@ -1,6 +1,6 @@
-name: "김민킈"
-age: 20
-gender: "female"
+character_name: "김민킈"
+character_age: 20
+character_gender: "female"
 dialogue_style:
   tone: "casual, 반말"
   personality: 

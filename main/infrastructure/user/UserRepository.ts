@@ -1,22 +1,25 @@
 import { logger } from '../config/logger';
 import Store from 'electron-store'
-let user: any;
 
 const userStore = new Store({ name: 'user' });
 
-try {
-    user = userStore.get('user') || {};
-} catch (error) {
-    user = {};
-}
-
 export const getUserSetting = () => {
-    return user;
+    const defaultUser = {
+        name: '(unknown)',
+        occupation: '(unknown)',
+        birthDate: '(unknown)',
+        location: '(unknown)',
+        locale: Intl.DateTimeFormat().resolvedOptions().locale,
+    }
+    try {
+        return userStore.get('user') || defaultUser;
+    } catch (error) {
+        return defaultUser;
+    }
 }
 
-// Start of Selection
 export const updateUserInfo = async (key: string, value: any) => {
-    // Start of Selection
-    user = { ...user, [key]: value };
+    const user = getUserSetting();
+    user[key] = value;
     userStore.set('user', user);
 }

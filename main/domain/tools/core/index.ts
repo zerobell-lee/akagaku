@@ -3,6 +3,7 @@ import { z } from "zod";
 import { updateUserInfo } from "../../../infrastructure/user/UserRepository";
 import { shell } from "electron";
 import { configRepository } from "../../../infrastructure/config/ConfigRepository";
+import { headers } from "next/headers";
 
 const get_weather = new DynamicStructuredTool({
     name: "get_weather",
@@ -82,11 +83,16 @@ const update_user_info = new DynamicStructuredTool({
     - user's feelings
     `,
     schema: z.object({
-        key: z.string(),
-        value: z.string(),
+        keyValues: z.array(z.object({
+            key: z.string(),
+            value: z.string(),
+        })),
     }),
-    func: async ({ key, value }) => {
-        return updateUserInfo(key, value);
+    func: async ({ keyValues }) => {
+        for (const { key, value } of keyValues) {
+            await updateUserInfo(key, value);
+        }
+        return "User info updated successfully. updated keys: " + keyValues.map(kv => kv.key).join(", ");
     },
 });
 
@@ -153,4 +159,27 @@ const get_schedule = new DynamicTool({
     },
 });
 
-export const core_tools = [get_weather, get_geolocation, getAnyCharacterEpisode, update_user_info, get_installed_apps, open_app, openUrl, getBookmarks, get_schedule];
+const getCryptoPrice = new DynamicStructuredTool({
+    name: "getCryptoPrice",
+    description: "Get price of the cryptocurrency from CoinMarketCap.",
+    schema: z.object({
+        ticker: z.string().describe("Ticker of the cryptocurrency. Such as BTC, ETH, XRP, etc."),
+    }),
+    func: async ({ ticker }) => {
+        const apiKey = await configRepository.getConfig("coinmarketcapApiKey");
+        if (!apiKey || apiKey === "") {
+            return "CoinMarketCap API key is not set. You need to explain user to set it in the config by himself.";
+        }
+        const response = await fetch(`https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${ticker}`, {
+            headers: {
+                'X-CMC_PRO_API_KEY': apiKey as string,
+            },
+        });
+        const data = await response.json();
+        return `
+        ${ticker} : ${data.data[ticker].quote.USD.price}
+        `;
+    },
+});
+
+export const core_tools = [get_weather, get_geolocation, getAnyCharacterEpisode, update_user_info, get_installed_apps, open_app, openUrl, getBookmarks, get_schedule, getCryptoPrice];
