@@ -46,9 +46,9 @@ const get_geolocation = new DynamicStructuredTool({
     },
 });
 
-const pickChitChatTopic = new DynamicTool({
-    name: "pickChitChatTopic",
-    description: "Pick one of the topics to chit chat with user. Don't use this tool if user met you for the first time. And only use this tool if user asked you to chit chat, or system ordered you to do so. It is not necessary to use this tool every time you chit chat with user.",
+const getAnyCharacterEpisode = new DynamicTool({
+    name: "getAnyCharacterEpisode",
+    description: "Get any episode of the character. It is not necessary to use this tool every time you chit chat with user.",
     func: async () => {
         const topics = [
             "캐릭터는 한 때 자캐대회라 불리는 대회를 개최한 적이 있으며, 그곳에서 무소불위의 권력을 휘둘렀다. 지금 생각해보면 피곤하기도 하지만, 좋았던 경험으로 남아있다",
@@ -126,7 +126,7 @@ const openUrl = new DynamicTool({
 
 const getBookmarks = new DynamicTool({
     name: "getBookmarks",
-    description: "Get bookmarks of the user",
+    description: "Get bookmarks of the user. If user say like '열어줘', you can use this tool to open the bookmark.",
     func: async () => {
         return `
         - 네이버 : https://naver.com
@@ -153,4 +153,4 @@ const get_schedule = new DynamicTool({
     },
 });
 
-export const core_tools = [get_weather, get_geolocation, pickChitChatTopic, update_user_info, get_installed_apps, open_app, openUrl, getBookmarks, get_schedule];
+export const core_tools = [get_weather, get_geolocation, getAnyCharacterEpisode, update_user_info, get_installed_apps, open_app, openUrl, getBookmarks, get_schedule];

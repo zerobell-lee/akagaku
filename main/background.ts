@@ -8,6 +8,7 @@ import { CharacterSettingLoader } from './infrastructure/character/CharacterRepo
 import fs from 'fs'
 import { CharacterAppearance, CharacterProperties } from '@shared/types'
 import dotenv from 'dotenv'
+import { AIMessage } from '@langchain/core/messages'
 
 const isProd = process.env.NODE_ENV === 'production'
 
@@ -119,6 +120,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
   let userChatInputWindow: BrowserWindow | null = null;
   let configWindow: BrowserWindow | null = null;
   let speechBubbleWindow: BrowserWindow | null = null;
+  let logsWindow: BrowserWindow | null = null;
 
   let ghostIsProcessingMessage = false;
 
@@ -169,6 +171,10 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
         speechBubbleWindow.showInactive()
       })
     }
+    if (!speechBubbleWindow.isVisible()) {
+        speechBubbleWindow.showInactive()
+    }
+    
 
     try {
       speechBubbleWindow.webContents.send('ghost-message-loading', true)
@@ -179,6 +185,8 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
       }
       speechBubbleWindow.webContents.send('ghost-message', response)
       mainWindow.webContents.send('ghost-message', response)
+      const chatHistory = ghost.getChatHistory()
+      logsWindow?.webContents.send('receive_chatlogs', chatHistory.toChatLogs())
       ghostIsProcessingMessage = false;
     } catch (error) {
       console.error(error)
@@ -187,7 +195,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
       mainWindow.webContents.send('ghost-message', { error: error })
       ghostIsProcessingMessage = false;
     }
-    resetChitChatTimeout();
+    resetChitChatTimeout(!isSystemMessage);
   }
 
   const isSpeechBubbleOpen = () => {
@@ -211,10 +219,10 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     }
     else if (arg === 'CHARACTER_LOADED') {
       let welcomeMessage = undefined;
-      if (await ghost.isNewRendezvous()) {
+      if (ghost.isNewRendezvous()) {
         sendGhostMessage(true, "This is your first time to talk to the user. Please introduce yourself and gather user's information. Call 'update_user_info' tool if you need to store user's information.")
       } else {
-        sendGhostMessage(true, "User entered.")
+        sendGhostMessage(true, "User entered. say hello to the user. when you say hello, you can consider how long it has passed since last conversation by referring timestamp of last message.")
       }
       console.log(welcomeMessage)
     }
@@ -302,6 +310,31 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     }
     else if (arg === 'RESET_CHAT_HISTORY') {
       ghost.resetChatHistory()
+      sendGhostMessage(true, "This is your first time to talk to the user. Please introduce yourself and gather user's information. Call 'update_user_info' tool if you need to store user's information.")
+    }
+    else if (arg === 'OPEN_LOG') {
+      if (!logsWindow) {
+        logsWindow = createWindow('logs', {
+          width: 1000,
+          height: 750,
+          transparent: false,
+          frame: true,
+          webPreferences: {
+            preload: path.join(__dirname, 'preload.js'),
+          },
+        })
+        loadUrlOnBrowserWindow(logsWindow, 'logs')
+        logsWindow.setMenuBarVisibility(false)
+        logsWindow.on('close', () => {
+          logsWindow = null
+        })
+      } else {
+        logsWindow.show()
+      }
+    }
+    else if (arg === 'LOG_OPENED') {
+      const chatHistory = ghost.getChatHistory()
+      logsWindow?.webContents.send('receive_chatlogs', chatHistory.toChatLogs())
     }
   })
 
@@ -376,17 +409,21 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     app.quit()
   })
 
-  const requestCharacterToChitChat = async () => {
+  const requestCharacterToChitChat = async (isLastMessageFromUser: boolean) => {
     if (!isSpeechBubbleOpen()) {
-      sendGhostMessage(true, "5 minutes have passed. Have a chit chat with the user.")
+      if (isLastMessageFromUser) {
+        sendGhostMessage(true, "Character, pick an episode about yourself and have a chit chat with the user. Since it has passed 5 minutes from last conversation, you don't need to be obsessed with the last conversation. Just have a chit chat with the user.")
+      } else {
+        sendGhostMessage(true, "Character, pick an episode about yourself and have a chit chat with the user. it has passed 5 minutes from last conversation, but unfortunately it seems user couldn't respond to you. Even though you're not sure whether user is busy or not, you can have a chit chat with the user.")
+      }
     }
   }
 
-  const resetChitChatTimeout = () => {
+  const resetChitChatTimeout = (isLastMessageFromUser: boolean) => {
     if (chitChatTimeout) {
       clearTimeout(chitChatTimeout)
     }
-    chitChatTimeout = setTimeout(requestCharacterToChitChat, 5 * 60 * 1000)
+    chitChatTimeout = setTimeout(() => requestCharacterToChitChat(isLastMessageFromUser), 5 * 60 * 1000)
   }
   
 })()

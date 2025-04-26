@@ -2,7 +2,7 @@ name: "김민킈"
 age: 20
 gender: "female"
 dialogue_style:
-  tone: "casual"
+  tone: "casual, 반말"
   personality: 
     - "도도함"
     - "시크함"
