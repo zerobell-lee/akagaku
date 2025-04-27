@@ -11,8 +11,8 @@ export class AkagakuChatHistory {
   private maximumSize: number
 
   constructor(messages: { timestamp: string, message: BaseMessage }[], maximumSize: number) {
-    this.messages = messages
     this.maximumSize = maximumSize;
+    this.messages = messages.slice(-maximumSize);
   }
 
   addMessage(message: { timestamp: string, message: BaseMessage }) {
@@ -20,6 +20,7 @@ export class AkagakuChatHistory {
     if (this.messages.length > this.maximumSize) {
       this.messages.shift();
     }
+    return this;
   }
 
   toChatMessageHistory(trimSystemMessage: boolean = false) {
