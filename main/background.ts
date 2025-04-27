@@ -8,7 +8,6 @@ import { CharacterSettingLoader } from './infrastructure/character/CharacterRepo
 import fs from 'fs'
 import { CharacterAppearance, CharacterProperties } from '@shared/types'
 import dotenv from 'dotenv'
-import { AIMessage } from '@langchain/core/messages'
 
 const isProd = process.env.NODE_ENV === 'production'
 
