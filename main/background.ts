@@ -2,13 +2,15 @@ import path from 'path'
 import { app, BrowserWindow, dialog, ipcMain, protocol, screen, Tray } from 'electron'
 import serve from 'electron-serve'
 import { createWindow } from './helpers'
-import Ghost from './domain/ghost/ghost'
+import { Ghost } from './domain/ghost/ghost_graph'
 import { configRepository } from './infrastructure/config/ConfigRepository'
 import { CharacterSettingLoader } from './infrastructure/character/CharacterRepository'
 import fs from 'fs'
 import { CharacterAppearance, CharacterProperties } from '@shared/types'
 import dotenv from 'dotenv'
 import { AIMessage } from '@langchain/core/messages'
+import { AIResponseParser } from './infrastructure/message/MessageParser'
+import { getChatHistory } from './infrastructure/chat/ChatHistoryRepository'
 
 const isProd = process.env.NODE_ENV === 'production'
 
@@ -31,12 +33,13 @@ const characterName = configRepository.getConfig('characterName') as string || "
 
 const ghost = new Ghost(
   {
-    character_name: characterName as string,
-    llmService: llmService as string,
-    modelName: selectedModel as string,
-    openaiApiKey: openaiApiKey as string,
-    anthropicApiKey: anthropicApiKey as string,
-    temperature: temperature as number,
+    llm_properties: {
+      llmService: llmService as string,
+      modelName: selectedModel as string,
+      apiKey: llmService === 'openai' ? openaiApiKey as string : anthropicApiKey as string,
+      temperature: temperature as number,
+    },
+    character_setting: CharacterSettingLoader.getCharacterSetting(characterName),
   }
 )
 
@@ -178,6 +181,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
 
     try {
       speechBubbleWindow.webContents.send('ghost-message-loading', true)
+      console.log('Here is sendGhostMessage', isSystemMessage, input)
       const response = await ghost.invoke({ isSystemMessage, input })
       if (isAppExiting && appExitTimeout) {
         clearTimeout(appExitTimeout)
@@ -185,7 +189,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
       }
       speechBubbleWindow.webContents.send('ghost-message', response)
       mainWindow.webContents.send('ghost-message', response)
-      const chatHistory = ghost.getChatHistory()
+      const chatHistory = getChatHistory(characterName)
       logsWindow?.webContents.send('receive_chatlogs', chatHistory.toChatLogs())
       ghostIsProcessingMessage = false;
     } catch (error) {
@@ -337,7 +341,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
       }
     }
     else if (arg === 'LOG_OPENED') {
-      const chatHistory = ghost.getChatHistory()
+      const chatHistory = getChatHistory(characterName)
       logsWindow?.webContents.send('receive_chatlogs', chatHistory.toChatLogs())
     }
   })
