@@ -5,12 +5,20 @@ import { app } from 'electron';
 import path from 'path';
 import { AffectionAttitudeMap, CharacterAppearance, CharacterProperties, TouchableArea } from '@shared/types';
 
+export interface CharacterSetting {
+    character_id: string;
+    character_name: string;
+    description: string;
+    available_emoticon: string[];
+    touchable_area: TouchableArea | null;
+}
+
 const dataDirectory = path.join(app.getAppPath(), 'data');
 
 const CharacterSettingLoader = {
-    getCharacterSetting: (character_name: string) => {
-        const character_setting = yaml.load(fs.readFileSync(path.join(dataDirectory, `character/${character_name}/character_description.yaml`), 'utf8'));
-        return character_setting;
+    getCharacterSetting: (character_id: string): CharacterSetting => {
+        const character_setting = yaml.load(fs.readFileSync(path.join(dataDirectory, `character/${character_id}/character_description.yaml`), 'utf8')) as CharacterSetting;
+        return { ...character_setting, character_id };
     },
 
     calcAttitude: (character_name: string, affection: number) => {
