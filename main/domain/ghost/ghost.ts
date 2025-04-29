@@ -170,7 +170,7 @@ export default class Ghost {
         history.addMessage(newMessage);
         try {
             
-            const parsed = this.aiResponseParser.parse(response);
+            const parsed = this.aiResponseParser.parseGhostResponse(response);
             console.log('response', response)
             if (!parsed) {
                 throw new Error('Failed to parse response');

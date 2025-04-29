@@ -37,6 +37,16 @@ export interface UpdatePayload {
     history: AkagakuChatHistory;
 }
 
+export interface ToolCall {
+    name: string;
+    args: Record<string, any>;
+    result: string;
+}
+
+export interface ToolCallResult {
+    tool_call_chain: ToolCall[];
+}
+
 export interface GhostState {
   input: UserInput;
   chat_history: AkagakuChatHistory;
@@ -51,4 +61,8 @@ export interface GhostState {
   invocation_retry_policy: invocationRetryPolicy;
   update_payload?: UpdatePayload;
   tools: (DynamicStructuredTool | DynamicTool | Tool)[];
+  promptForCharacter: string;
+  promptForTool: string;
+  tool_call_result: ToolCallResult;
+  is_user_update_needed: boolean;
 }

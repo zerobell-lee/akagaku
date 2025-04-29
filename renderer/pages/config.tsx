@@ -21,9 +21,10 @@ export default function Config() {
     const [temperature, setTemperature] = useState(1);
     const [toastMessage, setToastMessage] = useState('');
     const [openweathermapApiKey, setOpenweathermapApiKey] = useState('');
+    const [coinmarketcapApiKey, setCoinmarketcapApiKey] = useState('');
     const [chatHistoryLimit, setChatHistoryLimit] = useState(100);
     const saveConfig = () => {
-        window.ipc.send('save_config', { openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature, openweathermapApiKey, chatHistoryLimit });
+        window.ipc.send('save_config', { openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature, openweathermapApiKey, coinmarketcapApiKey, chatHistoryLimit });
         setToastMessage('Config saved!');
     }
 
@@ -35,6 +36,7 @@ export default function Config() {
         setSelectedModel(response.selectedModel);
         setTemperature(response.temperature);
         setOpenweathermapApiKey(response.openweathermapApiKey);
+        setCoinmarketcapApiKey(response.coinmarketcapApiKey);
         setChatHistoryLimit(response.chatHistoryLimit);
         setIsLoading(false);
     }
@@ -98,6 +100,10 @@ export default function Config() {
             <label className="flex flex-col gap-2">
                 <span className="text-2xl">OpenWeatherMap API Key</span>
                 <SecretInput value={openweathermapApiKey} onChange={(value) => setOpenweathermapApiKey(value)} />
+            </label>
+            <label className="flex flex-col gap-2">
+                <span className="text-2xl">CoinMarketCap API Key</span>
+                <SecretInput value={coinmarketcapApiKey} onChange={(value) => setCoinmarketcapApiKey(value)} />
             </label>
             <label className="flex flex-col gap-2">
                 <span className="text-2xl">Save chat history up to</span>

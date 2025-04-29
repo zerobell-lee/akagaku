@@ -6,7 +6,7 @@ import { Ghost } from './domain/ghost/ghost_graph'
 import { configRepository } from './infrastructure/config/ConfigRepository'
 import { CharacterSettingLoader } from './infrastructure/character/CharacterRepository'
 import fs from 'fs'
-import { CharacterAppearance, CharacterProperties } from '@shared/types'
+import { CharacterAppearance, CharacterProperties, UserInput, GhostResponse } from '@shared/types'
 import dotenv from 'dotenv'
 import { getChatHistory } from './infrastructure/chat/ChatHistoryRepository'
 
@@ -133,7 +133,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
   let chitChatTimeout: NodeJS.Timeout | null = null;
   let isAppExiting = false;
 
-  const sendGhostMessage = async (isSystemMessage: boolean, input: string) => {
+  const sendGhostMessage = async (messageBlock: (ghost: Ghost) => Promise<GhostResponse>) => {
     ghostIsProcessingMessage = true;
     mainWindow.webContents.send('user-action', 'BUBBLE_OPENED')
     if (!speechBubbleWindow) {
@@ -180,8 +180,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
 
     try {
       speechBubbleWindow.webContents.send('ghost-message-loading', true)
-      console.log('Here is sendGhostMessage', isSystemMessage, input)
-      const response = await ghost.invoke({ isSystemMessage, input })
+      const response = await messageBlock(ghost)
       if (isAppExiting && appExitTimeout) {
         clearTimeout(appExitTimeout)
         appExitTimeout = null;
@@ -198,7 +197,6 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
       mainWindow.webContents.send('ghost-message', { error: error })
       ghostIsProcessingMessage = false;
     }
-    resetChitChatTimeout(!isSystemMessage);
   }
 
   const isSpeechBubbleOpen = () => {
@@ -221,15 +219,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
       mainWindow.webContents.send('character_loaded', characterProperties)
     }
     else if (arg === 'CHARACTER_LOADED') {
-      let welcomeMessage = undefined;
-      if (ghost.isNewRendezvous()) {
-        sendGhostMessage(true, `This is your first time to talk to the user.
-        Please introduce yourself and gather user's information. Call 'update_user_info' tool if you need to store user's information.
-        `)
-      } else {
-        sendGhostMessage(true, "User entered. say hello to the user. when you say hello, you can consider how long it has passed since last conversation by referring timestamp of last message.")
-      }
-      console.log(welcomeMessage)
+      sendGhostMessage((g) => g.sayHello())
     }
     else if (arg === 'CHAT_OPENED' && userChatInputWindow === null) {
       userChatInputWindow = createWindow('user-chat-input', {
@@ -256,7 +246,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
         return;
       }
       isAppExiting = true;
-      sendGhostMessage(true, "User is exiting. Please say goodbye to the user. Don't use any tools. User is in hurry.")
+      sendGhostMessage((g) => g.sayGoodbye())
       appExitTimeout = setTimeout(() => {
         app.quit()
       }, 6000)
@@ -275,6 +265,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
         selectedModel: configRepository.getConfig('selectedModel') as string || "",
         temperature: configRepository.getConfig('temperature') as number || 1,
         openweathermapApiKey: configRepository.getConfig('openweathermapApiKey') as string || "",
+        coinmarketcapApiKey: configRepository.getConfig('coinmarketcapApiKey') as string || "",
         chatHistoryLimit: configRepository.getConfig('chatHistoryLimit') as number || 100
       });
     }
@@ -315,9 +306,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     }
     else if (arg === 'RESET_CHAT_HISTORY') {
       ghost.resetChatHistory()
-      sendGhostMessage(true, `This is your first time to talk to the user.
-        Please introduce yourself and gather user's information. Call 'update_user_info' tool if you need to store user's information.
-        `)
+      sendGhostMessage((g) => g.sayHello())
     }
     else if (arg === 'OPEN_LOG') {
       if (!logsWindow) {
@@ -368,7 +357,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     }
   })
 
-  ipcMain.on('save_config', (event, { openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature, openweathermapApiKey, chatHistoryLimit }) => {
+  ipcMain.on('save_config', (event, { openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature, openweathermapApiKey, coinmarketcapApiKey, chatHistoryLimit }) => {
     console.log(openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature, openweathermapApiKey)
     const previousOpenaiApiKey = configRepository.getConfig('openaiApiKey') as string || "";
     const previousAnthropicApiKey = configRepository.getConfig('anthropicApiKey') as string || "";
@@ -376,6 +365,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     const previousSelectedModel = configRepository.getConfig('selectedModel') as string || "";
     const previousTemperature = configRepository.getConfig('temperature') as number || 1;
     const previousOpenweathermapApiKey = configRepository.getConfig('openweathermapApiKey') as string || "";
+    const previousCoinmarketcapApiKey = configRepository.getConfig('coinmarketcapApiKey') as string || "";
     const previousChatHistoryLimit = configRepository.getConfig('chatHistoryLimit') as number || 100;
 
     let updateRequired = false;
@@ -402,37 +392,22 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     if (previousChatHistoryLimit !== chatHistoryLimit) {
       configRepository.setConfig('chatHistoryLimit', chatHistoryLimit);
     }
+    if (previousCoinmarketcapApiKey !== coinmarketcapApiKey) {
+      configRepository.setConfig('coinmarketcapApiKey', coinmarketcapApiKey);
+    }
     if (updateRequired) {
       ghost.updateExecuter({ openaiApiKey: openaiApiKey, anthropicApiKey: anthropicApiKey, llmService: llmService, modelName: selectedModel, temperature: temperature });
     }
   })
 
-  ipcMain.on('user-message', async (event, message: string) => {
-    sendGhostMessage(false, message)
+  ipcMain.on('user-message', async (event, message: UserInput) => {
+    sendGhostMessage((g) => g.sendRawMessage(message))
     userChatInputWindow?.close()
   })
 
   mainWindow.on('close', () => {
     app.quit()
   })
-
-  const requestCharacterToChitChat = async (isLastMessageFromUser: boolean) => {
-    if (!isSpeechBubbleOpen()) {
-      if (isLastMessageFromUser) {
-        sendGhostMessage(true, "Character, pick an episode about yourself and have a chit chat with the user. Since it has passed 5 minutes from last conversation, you don't need to be obsessed with the last conversation. Just have a chit chat with the user.")
-      } else {
-        sendGhostMessage(true, "Character, pick an episode about yourself and have a chit chat with the user. it has passed 5 minutes from last conversation, but unfortunately it seems user couldn't respond to you. Even though you're not sure whether user is busy or not, you can have a chit chat with the user.")
-      }
-    }
-  }
-
-  const resetChitChatTimeout = (isLastMessageFromUser: boolean) => {
-    if (chitChatTimeout) {
-      clearTimeout(chitChatTimeout)
-    }
-    chitChatTimeout = setTimeout(() => requestCharacterToChitChat(isLastMessageFromUser), 5 * 60 * 1000)
-  }
-  
 })()
 
 app.on('window-all-closed', () => {

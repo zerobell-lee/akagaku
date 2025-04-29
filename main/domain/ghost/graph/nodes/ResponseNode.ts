@@ -1,13 +1,12 @@
 import { AIMessage } from "@langchain/core/messages";
 
-import { BaseMessage, HumanMessage, isSystemMessage, SystemMessage } from "@langchain/core/messages";
-import { getChatHistory } from "main/infrastructure/chat/ChatHistoryRepository";
+import { BaseMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { getCharacterRelationships } from "main/infrastructure/user/RelationshipRepository";
 import { formatDatetime } from "main/infrastructure/utils/DatetimeStringUtils";
 import { GhostState, InvocationErrorType } from "../states";
 import { RunnableLambda } from "@langchain/core/runnables";
 import { CharacterSettingLoader } from "main/infrastructure/character/CharacterRepository";
-
+import { AIResponseParseError } from "main/infrastructure/message/MessageParser";
 const getCurrentTimestamp = (sentAt: Date) => {
     return formatDatetime(sentAt);
 }
@@ -20,10 +19,13 @@ const updateAffection = (affection: number, add_affection: number) => {
     return Math.min(Math.max(affection + add_affection, 0), 100);
 }
 
+const convertContextInputs = (fieldName: string, input: any) => {
+    return `${fieldName} = ${JSON.stringify(input)}`
+}
+
 export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>({
     func: async (state: GhostState) => {
-        console.log('Here is response node', state)
-        const { input, character_setting, user_setting, llmProperties, executor, aiResponseParser, invocation_result, invocation_retry_policy } = state;
+        const { input, character_setting, user_setting, llmProperties, executor, aiResponseParser, invocation_result, chat_history } = state;
         const currentTrialCount = invocation_result?.trial_count ? invocation_result.trial_count + 1 : 1;
         const characterId = character_setting.character_id;
 
@@ -36,52 +38,39 @@ export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>(
         const sentAt = new Date();
         const sentAtString = getCurrentTimestamp(sentAt);
         let relationship = getCharacterRelationships(characterId)
-        const history = await getChatHistory(characterId);
         let newMessage: { timestamp: string, message: BaseMessage } | null = null
-        let content = `${sentAtString}| ${input.input}`
+        let content = `${sentAtString}| user | "${input.input}" \n **PLEASE NOTE : AND, NOBODY WANTS TO KNOW YOUR REASONING OR EXPLANATION. DON'T MAKE PLAIN TEXT RESPONSE. YOU MUST MAKE JSON FORMAT RESPONSE.**`
         if (state.llmProperties.llmService === 'anthropic') {
             if (state.input.isSystemMessage) {
                 content = `
                 ${sentAtString}| ${input.input}
-                And, don't leave any comment in your response, so that the agent can parse it.
+And, NOBODY WANTS TO KNOW YOUR REASONING OR EXPLANATION. DON'T MAKE PLAIN TEXT RESPONSE. YOU MUST MAKE JSON FORMAT RESPONSE.
                 `
             }
-            newMessage = { timestamp: sentAtString, message: new HumanMessage({ name: isSystemMessage ? 'system' : 'user', content: content }) };
+            newMessage = { timestamp: sentAtString, message: new HumanMessage({ name: input.isSystemMessage ? 'system' : 'user', content: content }) };
         } else {
-            newMessage = { timestamp: sentAtString, message: isSystemMessage ? new SystemMessage(content) : new HumanMessage(content) };
+            newMessage = { timestamp: sentAtString, message: input.isSystemMessage ? new SystemMessage(content) : new HumanMessage(content) };
         }
-        let chatHistory: BaseMessage[] = history.getMessages().map(({ message }) => (message));
+        let chatHistory: BaseMessage[] = chat_history.getMessages().map(({ message }) => (message));
         if (llmProperties.llmService === 'anthropic') {
             chatHistory = chatHistory.filter((message) => message.getType() !== 'system');
         }
 
         const payload = {
             input: newMessage.message,
-            character_setting: JSON.stringify(character_setting),
-            user_setting: JSON.stringify(user_setting),
-            chat_history: chatHistory,
-            available_emoticon: character_setting.available_emoticon || '["neutral"]',
-            relationship: JSON.stringify(relationship),
+            character_setting: convertContextInputs('character_setting', character_setting),
+            user_setting: convertContextInputs('user_setting', user_setting),
+            chat_history: convertContextInputs('chat_history', chatHistory),
+            available_emoticon: convertContextInputs('available_emoticon', character_setting.available_emoticon || '["neutral"]'),
+            relationship: convertContextInputs('relationship', relationship),
+            tool_call_result: convertContextInputs('tool_call_result', state.tool_call_result)
         }
-        let errorType: InvocationErrorType | null = null;
-        let errorMessage: string | null = null;
-        let success = true;
         const response = await executor.invoke(payload);
-        history.addMessage(newMessage);
+        chat_history.addMessage(newMessage);
         try {
-            const parsed = aiResponseParser.parse(response);
+            const parsed = aiResponseParser.parseGhostResponse(response);
             console.log('response', response)
-            if (!parsed) {
-                success = false;
-                errorType = 'parseError';
-                errorMessage = 'Failed to parse response';
 
-                return {
-                    llm_response: response,
-                    chat_history: history,
-                    invocation_result: { success: false, trial_count: currentTrialCount, error_type: errorType, error_message: errorMessage }
-                };
-            }
             const updated_affection = updateAffection(relationship.affection_to_user, parsed.add_affection);
             const currentAttitude = getCurrentAttitude(characterId, updated_affection);
             relationship = {
@@ -91,30 +80,32 @@ export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>(
             }
             const receivedAt = new Date();
             const receivedAtString = formatDatetime(receivedAt);
-            history.addMessage({ message: new AIMessage(JSON.stringify(parsed)), timestamp: receivedAtString });
+            chat_history.addMessage({ message: new AIMessage(JSON.stringify(parsed)), timestamp: receivedAtString });
             return {
                 llm_response: response,
-                chat_history: history,
+                chat_history: chat_history,
+                invocation_result: { success: true, trial_count: currentTrialCount },
                 update_payload: {
                     relationship: relationship,
-                    history: history
+                    history: chat_history
                 },
                 final_response: parsed
             }
         } catch (e) {
-            success = false;
-            errorType = 'unknownError';
-            errorMessage = 'Unknown error';
+            if (e instanceof AIResponseParseError) {
+                console.error(e)
+                return {
+                    llm_response: response,
+                    chat_history: chat_history,
+                    invocation_result: { success: false, trial_count: currentTrialCount, error_type: 'parseError', error_message: e.message}
+                }
+            } else {
+                return {
+                    llm_response: response,
+                    chat_history: chat_history,
+                    invocation_result: { success: false, trial_count: currentTrialCount, error_type: 'unknownError', error_message: e.message }
+                }
+            }
         }
-
-        return {
-            llm_response: response,
-            chat_history: history,
-            update_payload: {
-                relationship: relationship,
-                history: history
-            },
-            invocation_result: { success: false, trial_count: currentTrialCount, error_type: 'unknownError', error_message: 'Unknown error' }
-        };
     }
 });

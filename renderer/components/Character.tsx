@@ -43,7 +43,7 @@ export default function Character({ character_name, character_width, character_h
 
     useEffect(() => {
         if (lastUserAction !== "") {
-            window.ipc.send('user-message', lastUserAction);
+            window.ipc.send('user-message', { input: lastUserAction, isSystemMessage: false });
         }
     }, [lastUserAction]);
 

@@ -74,7 +74,13 @@ export interface ConfigResponse {
     selectedModel: string;
     temperature: number;
     openweathermapApiKey: string;
+    coinmarketcapApiKey: string;
     chatHistoryLimit: number;
+}
+
+export interface UserInput {
+    input: string;
+    isSystemMessage: boolean;
 }
 
 export type llmService = 'openai' | 'anthropic';
