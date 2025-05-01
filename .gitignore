@@ -15,4 +15,3 @@ dist
 logs
 .env
 
-package-lock.json
