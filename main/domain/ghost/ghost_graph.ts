@@ -37,12 +37,15 @@ export const createGhostGraph = () => {
         tools: Annotation<any>(),
         promptForCharacter: Annotation<string>(),
         promptForTool: Annotation<string>(),
-        tool_call_result: Annotation<any>(),
+        toolCallResult: Annotation<any>(),
         is_user_update_needed: Annotation<boolean>(),
         toolAgent: Annotation<any>(),
         conversationAgent: Annotation<any>(),
         skipToolCall: Annotation<boolean>(),
-        messageConverter: Annotation<any>()
+        messageConverter: Annotation<any>(),
+        toolCallCompleted: Annotation<boolean>(),
+        toolCallFinalAnswer: Annotation<string>(),
+        toolCallHistory: Annotation<any>()
     })
 
     const graph = new StateGraph(StateAnnotation)
@@ -63,7 +66,19 @@ export const createGhostGraph = () => {
                 response: "response"
             }
         )
-        .addEdge("tool", "response")
+        .addConditionalEdges("tool", (state) => {
+            const { toolCallCompleted } = state;
+            if (toolCallCompleted) {
+                return 'response';
+            } else {
+                return 'tool';
+            }
+        },
+            {
+                tool: "tool",
+                response: "response"
+            }
+        )
         .addConditionalEdges("response", (state) => {
             const { invocation_result, invocation_retry_policy } = state;
             console.log('invocation_result', invocation_result)
@@ -134,8 +149,10 @@ export class Ghost {
             tools: core_tools,
             promptForCharacter: '',
             promptForTool: '',
+            toolCallHistory: [],
             skipToolCall: isSystemMessage,
-            tool_call_result: null,
+            toolCallFinalAnswer: '',
+            toolCallCompleted: false,
             is_user_update_needed: this.conversation_count % 5 === 0,
             toolAgent: this.toolAgent,
             conversationAgent: this.conversationAgent,

@@ -7,6 +7,7 @@ import { AkagakuChatHistory } from "main/infrastructure/chat/ChatHistoryReposito
 import { Relationship } from "main/infrastructure/user/RelationshipRepository";
 import { z } from "zod";
 import { AkagakuMessageConverter } from "main/domain/message/AkagakuMessage";
+import { BaseMessage } from "@langchain/core/messages";
 export interface UserInput {
   payload: string;
   isSystemMessage: boolean;
@@ -37,27 +38,11 @@ export interface UpdatePayload {
     history: AkagakuChatHistory;
 }
 
-export interface ToolCall {
-    name: string;
-    args: Record<string, any>;
-    result: string;
-}
-
-export const ToolCallResultFormatter = z.object({
-    tool_call_chain: z.array(z.object({
-        name: z.string().describe("name of tool"),
-        args: z.record(z.string(), z.any()).describe("arguments for tool"),
-        result: z.string().describe("result of tool. It is nullable if tool call is uncompleted")
-    })).describe("array of tool call chain. It is empty when no tool call is made")
-})
-
-export interface ToolCallResult {
-    tool_call_chain: ToolCall[];
-}
-
 export interface GhostState {
   userInput: UserInput;
   skipToolCall: boolean;
+  toolCallCompleted: boolean;
+  toolCallHistory: BaseMessage[];
   chat_history: AkagakuChatHistory;
   llmProperties: llmProperties;
   character_setting: CharacterSetting;
@@ -71,7 +56,7 @@ export interface GhostState {
   tools: (DynamicStructuredTool | DynamicTool | Tool)[];
   promptForCharacter: string;
   promptForTool: string;
-  tool_call_result: ToolCallResult;
+  toolCallFinalAnswer: string;
   is_user_update_needed: boolean;
   toolAgent: Runnable | null;
   conversationAgent: Runnable | null;

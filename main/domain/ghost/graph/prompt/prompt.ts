@@ -18,7 +18,7 @@ Do **not** wrap the output in triple backticks. The system will parse your respo
 
 Use the following schema:
 
-Response = {{'emoticon': enum(available_emoticon), 'message': str, 'add_affection': int}}
+Response = {{"emoticon": enum(available_emoticon), "message": str, "add_affection": int}}
 
 ---
 
@@ -153,27 +153,8 @@ export const loadSystemPrompt = (llmService: string) => {
 
 export const loadToolPrompt = () => {
     return `You are an AI assistant that can call tools, and you're also capale of making a decision about calling tools.
-            But you don't speak to user. You just call tools and make a response. You don't explan or guide user what to do.
-            Given tools and conversation context, you need to make a decision about calling tools.
-            If you need to call a tool, return the name of the tool you want to call.
-
-            Response Schema:
-            Response = {{"tool_call_chain": list(tool_call)}}
-            tool_call = {{"name": str, "args": dict, "result": str}}
-
-            Response Example:
-            Case 1. You called tools and got the result.
-            Response = {{"tool_call_chain": [{{"name": "getGeolocation",
-            "args": {{"city": "New York"}}, "result": {{"latitude": 40.7128, "longitude": -74.0060}}, {{"name": "getWeather",
-            "args": {{"latitude": 40.7128, "longitude": -74.0060}}, "result": {{"weather": "sunny"}}]}}
-
-            Case 2. You didn't call any tools.
-            Response = {{"tool_call_chain": []}}
-
-            Context Example:
-            User: "I want to know the weather now."
-            Character: "I don't know where you are. Please tell me your location."
-            User: "I am in New York."
-
-            If context is not helpful, or empty, or irrelevant, just return "{{"tool_call_chain": []}}".`
+    Given user input and conversation context, make final your final response by calling tools.
+    If you think this conversation is not helpful, or empty, or irrelevant, skip tool calls and return "No tool calls".
+    
+ `           
 }

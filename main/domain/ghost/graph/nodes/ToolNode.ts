@@ -1,31 +1,54 @@
+import { AIMessage } from "@langchain/core/messages";
 import { GhostState } from "../states";
 import { RunnableLambda } from "@langchain/core/runnables";
-import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
-import { GhostResponse } from "@shared/types";
 import { formatDatetime } from "main/infrastructure/utils/DatetimeStringUtils";
+import { core_tools } from "main/domain/tools/core";
 
 export const ToolNode = new RunnableLambda<GhostState, Partial<GhostState>>({
     func: async (state: GhostState) => {
         
-        const { aiResponseParser, toolAgent, chat_history } = state;
+        const { toolAgent, chat_history, toolCallHistory } = state;
 
-        console.log('chat_history', chat_history.getMessages())
-
-        // Start of Selection
+        console.log(toolCallHistory)
         const conversationContext = chat_history.getMessages().map((message) => message.toChatLog()).map(chatLog => `${formatDatetime(chatLog.createdAt)} | ${chatLog.role}: ${chatLog.content}`).join('\n')
+
+        if (!toolAgent) {
+            return { toolCallCompleted: true, toolCallHistory: [], toolCallFinalAnswer: '' };
+        }
 
         try {
             const result = await toolAgent.invoke({
                 conversation_context: `conversation_context = ${JSON.stringify(conversationContext)}`,
-                input: state.userInput.payload
+                input: state.userInput.payload,
+                tool_history: toolCallHistory
             });
+
+            console.log('tool result', result)
+
+            toolCallHistory.push(result)
+            const toolCalls = (result as AIMessage).tool_calls
+            console.log('tool result', result)
+
+            if (toolCalls.length === 0) {
+                let finalAnswer = result.content
+                if (finalAnswer.trim() === '' || (Array.isArray(finalAnswer) && finalAnswer.length === 0)) {
+                    finalAnswer = toolCallHistory[toolCallHistory.length - 1].content as string
+                }
+                return { toolCallCompleted: true, toolCallHistory: null, toolCallFinalAnswer: finalAnswer };
+            }
+            
+            for (const toolCall of toolCalls) {
+                const tool = core_tools.find((tool) => tool.name === toolCall.name)
+                if (tool) {
+                    const toolResult = await tool.invoke(toolCall)
+                    toolCallHistory.push(toolResult)
+                }
+            }
     
-            const toolCallResult = aiResponseParser.parseToolResponse(result);        
-    
-            return { tool_call_result: toolCallResult };
+            return { toolCallHistory };
         } catch (e) {
             console.log('tool node error', e)
-            return { tool_call_result: { tool_call_chain: [], final_answer: '' } };
+            return { toolCallCompleted: true, toolCallHistory: null, toolCallFinalAnswer: '' };
         }
     }
 }); 

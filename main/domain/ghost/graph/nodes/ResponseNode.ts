@@ -25,7 +25,7 @@ const convertContextInputs = (fieldName: string, input: any) => {
 
 export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>({
     func: async (state: GhostState) => {
-        const { userInput, character_setting, user_setting, llmProperties, conversationAgent, aiResponseParser, invocation_result, chat_history, messageConverter } = state;
+        const { userInput, character_setting, user_setting, toolCallFinalAnswer, conversationAgent, aiResponseParser, invocation_result, chat_history, messageConverter } = state;
         const currentTrialCount = invocation_result?.trial_count ? invocation_result.trial_count + 1 : 1;
         const characterId = character_setting.character_id;
 
@@ -47,7 +47,7 @@ export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>(
             chat_history: convertContextInputs('chat_history', langchainChatHistory),
             available_emoticon: convertContextInputs('available_emoticon', character_setting.available_emoticon || '["neutral"]'),
             relationship: convertContextInputs('relationship', relationship),
-            tool_call_result: convertContextInputs('tool_call_result', state.tool_call_result)
+            tool_call_result: `tool_call_result = ${toolCallFinalAnswer}`
         }
         const response = await conversationAgent.invoke(payload);
         chat_history.addMessage(newMessage);

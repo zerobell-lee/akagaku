@@ -1,4 +1,4 @@
-import { llmProperties, ToolCallResultFormatter } from "../states";
+import { llmProperties } from "../states";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { initChatModel } from 'langchain/chat_models/universal'
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
@@ -19,18 +19,28 @@ const getLlmModel = async (llmProperties: llmProperties): Promise<BaseChatModel>
 }
 
 export const createAgentForTool = async (llmProperties: llmProperties, toolPrompt: string): Promise<Runnable> => {
+    let newLlmProperties = llmProperties;
+    if (llmProperties.llmService === 'anthropic') {
+        newLlmProperties = {
+            ...llmProperties,
+            modelName: 'claude-3-5-haiku-latest',
+        }
+    }
     const prompt =
         ChatPromptTemplate.fromMessages([
             ["system", toolPrompt],
             ["placeholder", "{conversation_context}"],
             ["human", "{input}"],
+            ["placeholder", "{tool_history}"],
             ["placeholder", "{agent_scratchpad}"],
         ]);
-    let model = await getLlmModel(llmProperties);
+    let model = await getLlmModel(newLlmProperties);
 
     if (!model) {
         return null
     }
+
+    return prompt.pipe(model.bindTools(core_tools).withConfig({ runName: "ghost-tool" }))
 
     const agent = createToolCallingAgent({ llm: model, tools: core_tools, prompt: prompt });
     const executor = new AgentExecutor({
