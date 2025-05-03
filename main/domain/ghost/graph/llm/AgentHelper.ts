@@ -1,0 +1,63 @@
+import { llmProperties, ToolCallResultFormatter } from "../states";
+import { ChatPromptTemplate } from "@langchain/core/prompts";
+import { initChatModel } from 'langchain/chat_models/universal'
+import { BaseChatModel } from "@langchain/core/language_models/chat_models";
+import { createToolCallingAgent } from "langchain/agents";
+import { core_tools } from "main/domain/tools/core";
+import { AgentExecutor } from "langchain/agents";
+import { Runnable } from "@langchain/core/runnables";
+
+const getLlmModel = async (llmProperties: llmProperties): Promise<BaseChatModel> => {
+    const { llmService, modelName, apiKey, temperature } = llmProperties;
+    let model = null;
+    model = await initChatModel(modelName, {
+        modelProvider: llmService,
+        temperature: temperature,
+        apiKey: apiKey
+    });
+    return model;
+}
+
+export const createAgentForTool = async (llmProperties: llmProperties, toolPrompt: string): Promise<Runnable> => {
+    const prompt =
+        ChatPromptTemplate.fromMessages([
+            ["system", toolPrompt],
+            ["placeholder", "{conversation_context}"],
+            ["human", "{input}"],
+            ["placeholder", "{agent_scratchpad}"],
+        ]);
+    let model = await getLlmModel(llmProperties);
+
+    if (!model) {
+        return null
+    }
+
+    const agent = createToolCallingAgent({ llm: model, tools: core_tools, prompt: prompt });
+    const executor = new AgentExecutor({
+        agent: agent,
+        tools: core_tools,
+    }).withConfig({
+        runName: "ghost-tool"
+    });
+
+    return executor;
+}
+
+export const createAgentForConversation = async (llmProperties: llmProperties, systemPrompt: string): Promise<Runnable> => {
+    const model = await getLlmModel(llmProperties);
+    const prompt =
+        ChatPromptTemplate.fromMessages([
+            ["system", systemPrompt],
+            ["placeholder", "{character_setting}"],
+            ["placeholder", "{available_emoticon}"],
+            ["placeholder", "{user_setting}"],
+            ["placeholder", "{chat_history}"],
+            ["placeholder", "{relationship}"],
+            ["placeholder", "{conversation_context}"],
+            ["placeholder", "{tool_call_result}"],
+            ["human", "{input}"],
+            ["placeholder", "{agent_scratchpad}"],
+        ]);
+
+    return prompt.pipe(model).withConfig({ runName: "ghost" });
+}

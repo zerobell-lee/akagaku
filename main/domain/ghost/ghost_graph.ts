@@ -1,6 +1,4 @@
 import { GhostResponse } from "@shared/types";
-import { AgentNode } from "./graph/nodes/AgentNode";
-import { InputNode } from "./graph/nodes/InputNode";
 import { ResponseNode } from "./graph/nodes/ResponseNode";
 import { RetryNode } from "./graph/nodes/RetryNode";
 import { UpdateChatHistoryNode, UpdateUserSettingNode } from "./graph/nodes/UpdateNode";
@@ -12,7 +10,11 @@ import { AkagakuChatHistory, getChatHistory, updateChatHistory } from "main/infr
 import { core_tools } from "../tools/core";
 import { configRepository } from "main/infrastructure/config/ConfigRepository";
 import { ToolNode } from "./graph/nodes/ToolNode";
-import { BuildPromptNode } from "./graph/nodes/BuildPromptNode";
+import { Runnable } from "@langchain/core/runnables";
+import { createAgentForConversation, createAgentForTool } from "./graph/llm/AgentHelper";
+import { loadToolPrompt, loadSystemPrompt } from "./graph/prompt/prompt";
+import { AIResponseParser } from "main/infrastructure/message/MessageParser";
+
 export const createGhostGraph = () => {
     const StateAnnotation = Annotation.Root({
         input: Annotation<{ input: string, isSystemMessage: boolean }>(),
@@ -36,22 +38,31 @@ export const createGhostGraph = () => {
         promptForCharacter: Annotation<string>(),
         promptForTool: Annotation<string>(),
         tool_call_result: Annotation<any>(),
-        is_user_update_needed: Annotation<boolean>()
+        is_user_update_needed: Annotation<boolean>(),
+        toolAgent: Annotation<any>(),
+        conversationAgent: Annotation<any>(),
+        skipToolCall: Annotation<boolean>()
     })
 
     const graph = new StateGraph(StateAnnotation)
-        .addNode("inputNode", InputNode)
-        .addNode("buildPrompt", BuildPromptNode)
-        .addNode("agent", AgentNode)
         .addNode("tool", ToolNode)
         .addNode("updateChatHistory", UpdateChatHistoryNode)
         .addNode("updateUserSetting", UpdateUserSettingNode)
         .addNode("response", ResponseNode)
         .addNode("retry", RetryNode)
-        .addEdge(START, "inputNode")
-        .addEdge("inputNode", "buildPrompt")
-        .addEdge("buildPrompt", "agent")
-        .addEdge("agent", "tool")
+        .addConditionalEdges(START, (state) => {
+            const { skipToolCall } = state;
+            if (skipToolCall) {
+                return 'response';
+            } else {
+                return 'tool';
+            }
+        },
+            {
+                tool: "tool",
+                response: "response"
+            }
+        )
         .addEdge("tool", "response")
         .addConditionalEdges("response", (state) => {
             const { invocation_result, invocation_retry_policy } = state;
@@ -105,10 +116,13 @@ export const createGhostGraph = () => {
 }
 
 export class Ghost {
-    private graph: CompiledStateGraph<GhostState, Partial<GhostState>, "inputNode" | "__start__" | "buildPrompt" | "agent" | "tool" | "update" | "response" | "retry", StateDefinition, StateDefinition, StateDefinition>;
+    private graph: CompiledStateGraph<GhostState, Partial<GhostState>, "tool" | "update" | "response" | "retry", StateDefinition, StateDefinition, StateDefinition>;
     private llm_properties: llmProperties;
     private character_setting: CharacterSetting;
     private conversation_count: number;
+    private toolAgent: Runnable | null;
+    private conversationAgent: Runnable | null;
+    private agentsInitialized: boolean = false;
 
     constructor({ llm_properties, character_setting }: { llm_properties: llmProperties, character_setting: CharacterSetting }) {
         this.graph = createGhostGraph() as any;
@@ -118,6 +132,9 @@ export class Ghost {
     }
 
     async invoke({ input, isSystemMessage }: { input: string, isSystemMessage: boolean }): Promise<GhostResponse> {
+        if (!this.agentsInitialized) {
+            await this.createAgents();
+        }
         this.conversation_count++;
         const userSetting = getUserSetting();
         const chatHistory = getChatHistory(this.character_setting.character_id);
@@ -128,16 +145,18 @@ export class Ghost {
             llmProperties: this.llm_properties,
             chat_history: chatHistory,
             invocation_retry_policy: { maximum_trial: 3 },
-            executor: null,
-            aiResponseParser: null,
+            aiResponseParser: new AIResponseParser(this.llm_properties.llmService),
             invocation_result: null,
             update_payload: null,
             final_response: null,
             tools: core_tools,
             promptForCharacter: '',
             promptForTool: '',
+            skipToolCall: isSystemMessage,
             tool_call_result: null,
-            is_user_update_needed: this.conversation_count % 5 === 0
+            is_user_update_needed: this.conversation_count % 5 === 0,
+            toolAgent: this.toolAgent,
+            conversationAgent: this.conversationAgent
         }
         const result = await this.graph.invoke(state);
         if (result.final_response) {
@@ -157,11 +176,20 @@ export class Ghost {
         await updateChatHistory(this.character_setting.character_id, history);
     }
 
-    updateExecuter({ openaiApiKey, anthropicApiKey, llmService, modelName, temperature }: { openaiApiKey: string | null, anthropicApiKey: string | null, llmService: string | null, modelName: string | null, temperature: number }) {
+    private async createAgents() {
+        const promptForTool = loadToolPrompt();
+        const promptForCharacter = loadSystemPrompt(this.llm_properties.llmService);
+        this.toolAgent = await createAgentForTool(this.llm_properties, promptForTool);
+        this.conversationAgent = await createAgentForConversation(this.llm_properties, promptForCharacter);
+        this.agentsInitialized = true;
+    }
+
+    async updateExecuter({ openaiApiKey, anthropicApiKey, llmService, modelName, temperature }: { openaiApiKey: string | null, anthropicApiKey: string | null, llmService: string | null, modelName: string | null, temperature: number }) {
         this.llm_properties.apiKey = llmService === 'openai' ? openaiApiKey : anthropicApiKey;
         this.llm_properties.llmService = llmService;
         this.llm_properties.modelName = modelName;
         this.llm_properties.temperature = temperature;
+        await this.createAgents();
     }
 
     async sayHello() {

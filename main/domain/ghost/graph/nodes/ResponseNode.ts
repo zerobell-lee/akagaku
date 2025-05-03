@@ -3,7 +3,7 @@ import { AIMessage } from "@langchain/core/messages";
 import { BaseMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { getCharacterRelationships } from "main/infrastructure/user/RelationshipRepository";
 import { formatDatetime } from "main/infrastructure/utils/DatetimeStringUtils";
-import { GhostState, InvocationErrorType } from "../states";
+import { GhostState } from "../states";
 import { RunnableLambda } from "@langchain/core/runnables";
 import { CharacterSettingLoader } from "main/infrastructure/character/CharacterRepository";
 import { AIResponseParseError } from "main/infrastructure/message/MessageParser";
@@ -25,11 +25,11 @@ const convertContextInputs = (fieldName: string, input: any) => {
 
 export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>({
     func: async (state: GhostState) => {
-        const { input, character_setting, user_setting, llmProperties, executor, aiResponseParser, invocation_result, chat_history } = state;
+        const { input, character_setting, user_setting, llmProperties, conversationAgent, aiResponseParser, invocation_result, chat_history } = state;
         const currentTrialCount = invocation_result?.trial_count ? invocation_result.trial_count + 1 : 1;
         const characterId = character_setting.character_id;
 
-        if (!executor) {
+        if (!conversationAgent) {
             return {
                 invocation_result: { success: false, trial_count: currentTrialCount, error_type: 'apiKeyNotDefined', error_message: 'API key is not defined' }
             }
@@ -65,7 +65,7 @@ And, NOBODY WANTS TO KNOW YOUR REASONING OR EXPLANATION. DON'T MAKE PLAIN TEXT R
             relationship: convertContextInputs('relationship', relationship),
             tool_call_result: convertContextInputs('tool_call_result', state.tool_call_result)
         }
-        const response = await executor.invoke(payload);
+        const response = await conversationAgent.invoke(payload);
         chat_history.addMessage(newMessage);
         try {
             const parsed = aiResponseParser.parseGhostResponse(response);

@@ -27,6 +27,8 @@ export class AIResponseParser {
                 console.error(e)
                 throw new AIResponseParseError('Failed to parse response', target)
             }
+        } else {
+            target = response.content
         }
         const regex = /{[^]*?}/g;
         const matchedJson = target.match(regex)
