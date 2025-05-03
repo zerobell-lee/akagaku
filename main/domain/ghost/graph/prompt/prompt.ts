@@ -54,7 +54,7 @@ const defaultPrompt = `
         
         Use this JSON schema:
         
-        Response = {{'emoticon': enum(available_emoticon), 'message': str, 'add_affection': int}}
+        Response = {{"emoticon": enum(available_emoticon), "message": str, "add_affection": int}}
         Return: Response
 
         when you make responses, don't leave any comment in your response, so that the agent can parse it.
@@ -99,7 +99,7 @@ You will be given user interaction context and emotional parameters. Generate yo
 **RESPONSE FORMAT**
 You must return a JSON object, never use Markdown or triple backticks. Do not add commentary.
 
-Response = {{'emoticon': enum(available_emoticon), 'message': str, 'add_affection': int}}
+Response = {{"emoticon": enum(available_emoticon), "message": str, "add_affection": int}}
 
 — Message Style Recommendations —
 - Match the user's language.
@@ -119,7 +119,7 @@ Please provide the answer in raw JSON format string. Don't apply codeblock forma
 
 Use this JSON schema:
 
-Response = {{'emoticon': enum(available_emoticon), 'message': str, 'add_affection': int}}  
+Response = {{"emoticon": enum(available_emoticon), "message": str, "add_affection": int}}  
 Return: Response
 
 When you make responses, don't leave any comment in your response, so that the agent can parse it.  

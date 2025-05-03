@@ -70,7 +70,7 @@ export interface GhostResponse {
 export interface ConfigResponse {
     openaiApiKey: string;
     anthropicApiKey: string;
-    llmService: llmService;
+    llmService: LLMService;
     selectedModel: string;
     temperature: number;
     openweathermapApiKey: string;
@@ -83,4 +83,10 @@ export interface UserInput {
     isSystemMessage: boolean;
 }
 
-export type llmService = 'openai' | 'anthropic';
+export type LLMService = 'openai' | 'anthropic';
+
+export interface ChatLog {
+    role: string;
+    content: string;
+    createdAt: Date;
+}

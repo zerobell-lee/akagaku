@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { Toast } from "../components/Toast";
 import { SecretInput } from "renderer/components/SecretInput";
-import { ConfigResponse, llmService } from "@shared/types";
+import { ConfigResponse, LLMService } from "@shared/types";
 
 export default function Config() {
     const serviceModelMap = {
@@ -17,7 +17,7 @@ export default function Config() {
     const [selectedModel, setSelectedModel] = useState<string | null>(null);
     const [openaiApiKey, setOpenaiApiKey] = useState('');
     const [anthropicApiKey, setAnthropicApiKey] = useState('');
-    const [llmService, setLlmService] = useState<llmService | null>(null);
+    const [llmService, setLlmService] = useState<LLMService | null>(null);
     const [temperature, setTemperature] = useState(1);
     const [toastMessage, setToastMessage] = useState('');
     const [openweathermapApiKey, setOpenweathermapApiKey] = useState('');
@@ -41,7 +41,7 @@ export default function Config() {
         setIsLoading(false);
     }
 
-    const updateLlmService = (llmService: llmService) => {
+    const updateLlmService = (llmService: LLMService) => {
         if (llmService === null) {
             return
         } else {
@@ -71,7 +71,7 @@ export default function Config() {
             <h1 className="text-3xl font-bold">Config</h1>
             <label className="flex flex-col gap-2 py-4">
                 <span className="text-2xl">LLM model</span>
-                <select className="bg-gray-700 text-black px-4 py-2 rounded-md" defaultValue={llmService} onChange={(e) => updateLlmService(e.target.value as llmService)}>
+                <select className="bg-gray-700 text-black px-4 py-2 rounded-md" defaultValue={llmService} onChange={(e) => updateLlmService(e.target.value as LLMService)}>
                     {Object.keys(serviceModelMap).map((service) => (
                         <option value={service}>{service}</option>
                     ))}

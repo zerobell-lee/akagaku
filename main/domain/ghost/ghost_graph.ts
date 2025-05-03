@@ -1,6 +1,5 @@
-import { GhostResponse } from "@shared/types";
+import { GhostResponse, LLMService, UserInput } from "@shared/types";
 import { ResponseNode } from "./graph/nodes/ResponseNode";
-import { RetryNode } from "./graph/nodes/RetryNode";
 import { UpdateChatHistoryNode, UpdateUserSettingNode } from "./graph/nodes/UpdateNode";
 import { GhostState, llmProperties } from "./graph/states";
 import { Annotation, CompiledStateGraph, END, START, StateDefinition, StateGraph } from "@langchain/langgraph";
@@ -14,10 +13,11 @@ import { Runnable } from "@langchain/core/runnables";
 import { createAgentForConversation, createAgentForTool } from "./graph/llm/AgentHelper";
 import { loadToolPrompt, loadSystemPrompt } from "./graph/prompt/prompt";
 import { AIResponseParser } from "main/infrastructure/message/MessageParser";
+import { AkagakuMessageConverter } from "../message/AkagakuMessage";
 
 export const createGhostGraph = () => {
     const StateAnnotation = Annotation.Root({
-        input: Annotation<{ input: string, isSystemMessage: boolean }>(),
+        userInput: Annotation<any>(),
         character_setting: Annotation<CharacterSetting>(),
         user_setting: Annotation<any>(),
         llmProperties: Annotation<{
@@ -41,7 +41,8 @@ export const createGhostGraph = () => {
         is_user_update_needed: Annotation<boolean>(),
         toolAgent: Annotation<any>(),
         conversationAgent: Annotation<any>(),
-        skipToolCall: Annotation<boolean>()
+        skipToolCall: Annotation<boolean>(),
+        messageConverter: Annotation<any>()
     })
 
     const graph = new StateGraph(StateAnnotation)
@@ -49,7 +50,6 @@ export const createGhostGraph = () => {
         .addNode("updateChatHistory", UpdateChatHistoryNode)
         .addNode("updateUserSetting", UpdateUserSettingNode)
         .addNode("response", ResponseNode)
-        .addNode("retry", RetryNode)
         .addConditionalEdges(START, (state) => {
             const { skipToolCall } = state;
             if (skipToolCall) {
@@ -69,31 +69,12 @@ export const createGhostGraph = () => {
             console.log('invocation_result', invocation_result)
             if (invocation_result?.success === true) {
                 return 'ok';
-            } else if (invocation_result?.success === false && invocation_result.error_type === 'parseError' && invocation_result?.trial_count < invocation_retry_policy?.maximum_trial) {
-                return 'retry';
             } else {
                 return 'end';
             }
         },
             {
                 ok: "updateChatHistory",
-                retry: "retry",
-                end: END
-            }
-        )
-        .addConditionalEdges("retry", (state) => {
-            const { invocation_result, invocation_retry_policy } = state;
-            if (invocation_result?.success === true) {
-                return 'ok';
-            } else if (invocation_result?.success === false && invocation_result.error_type === 'parseError' && invocation_result?.trial_count < invocation_retry_policy?.maximum_trial) {
-                return 'retry';
-            } else {
-                return 'end';
-            }
-        },
-            {
-                ok: "updateChatHistory",
-                retry: "retry",
                 end: END
             }
         )
@@ -123,6 +104,7 @@ export class Ghost {
     private toolAgent: Runnable | null;
     private conversationAgent: Runnable | null;
     private agentsInitialized: boolean = false;
+    private messageConverter: AkagakuMessageConverter;
 
     constructor({ llm_properties, character_setting }: { llm_properties: llmProperties, character_setting: CharacterSetting }) {
         this.graph = createGhostGraph() as any;
@@ -139,7 +121,7 @@ export class Ghost {
         const userSetting = getUserSetting();
         const chatHistory = getChatHistory(this.character_setting.character_id);
         const state: GhostState = {
-            input: { input, isSystemMessage },
+            userInput: { payload: input, isSystemMessage },
             character_setting: this.character_setting,
             user_setting: userSetting,
             llmProperties: this.llm_properties,
@@ -156,7 +138,8 @@ export class Ghost {
             tool_call_result: null,
             is_user_update_needed: this.conversation_count % 5 === 0,
             toolAgent: this.toolAgent,
-            conversationAgent: this.conversationAgent
+            conversationAgent: this.conversationAgent,
+            messageConverter: this.messageConverter
         }
         const result = await this.graph.invoke(state);
         if (result.final_response) {
@@ -182,11 +165,12 @@ export class Ghost {
         this.toolAgent = await createAgentForTool(this.llm_properties, promptForTool);
         this.conversationAgent = await createAgentForConversation(this.llm_properties, promptForCharacter);
         this.agentsInitialized = true;
+        this.messageConverter = new AkagakuMessageConverter(this.llm_properties.llmService);
     }
 
     async updateExecuter({ openaiApiKey, anthropicApiKey, llmService, modelName, temperature }: { openaiApiKey: string | null, anthropicApiKey: string | null, llmService: string | null, modelName: string | null, temperature: number }) {
         this.llm_properties.apiKey = llmService === 'openai' ? openaiApiKey : anthropicApiKey;
-        this.llm_properties.llmService = llmService;
+        this.llm_properties.llmService = llmService as LLMService;
         this.llm_properties.modelName = modelName;
         this.llm_properties.temperature = temperature;
         await this.createAgents();

@@ -8,6 +8,7 @@ import { ChatAnthropic } from "@langchain/anthropic";
 import { ChatOpenAI } from "@langchain/openai";
 import { core_tools, update_user_info } from "main/domain/tools/core";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
+import { formatDatetime } from "main/infrastructure/utils/DatetimeStringUtils";
 
 export const UpdateChatHistoryNode = new RunnableLambda<GhostState, Partial<GhostState>>({
     func: async (state: GhostState) => {
@@ -80,7 +81,7 @@ export const UpdateUserSettingNode = new RunnableLambda<GhostState, Partial<Ghos
         });
         const result = await executor.invoke({
             user_setting: `user_setting = ${JSON.stringify(state.user_setting)}`,
-            chat_history: `chat_history = ${JSON.stringify(state.update_payload?.history.getMessages().map(message => message.message))}`
+            chat_history: `chat_history = ${JSON.stringify(state.update_payload?.history.getMessages().map(message => message.toChatLog()).map(chatLog => `${formatDatetime(chatLog.createdAt)} | ${chatLog.role}: ${chatLog.content}`).join('\n'))}`
         });
         return {}
     }

@@ -1,21 +1,21 @@
-import { ChatMessageHistory } from 'langchain/memory';
-import { HumanMessage, AIMessage, SystemMessage, BaseMessage, FunctionMessage, ToolMessage, trimMessages } from '@langchain/core/messages';
-import { logger } from '../config/logger';
 import Store from 'electron-store'
 import { configRepository } from '../config/ConfigRepository';
+import { AkagakuBaseMessage, AkagakuSystemMessage, AkagakuUserMessage, AkagakuCharacterMessage } from "main/domain/message/AkagakuMessage";
+import { parseDatetime } from '../utils/DatetimeStringUtils';
 
 const chatHistoryStore = new Store({ name: 'chat_history' });
 
 export class AkagakuChatHistory {
-  private messages: { timestamp: string, message: BaseMessage }[] = [];
-  private maximumSize: number
+  private messages: AkagakuBaseMessage[] = [];
+  private maximumSize: number = 100;
+  private windowSize: number = 30;
 
-  constructor(messages: { timestamp: string, message: BaseMessage }[], maximumSize: number) {
-    this.maximumSize = maximumSize;
-    this.messages = messages.slice(-maximumSize);
+  constructor(messages: AkagakuBaseMessage[], windowSize: number) {
+    this.windowSize = windowSize;
+    this.messages = messages
   }
 
-  addMessage(message: { timestamp: string, message: BaseMessage }) {
+  addMessage(message: AkagakuBaseMessage) {
     this.messages.push(message);
     if (this.messages.length > this.maximumSize) {
       this.messages.shift();
@@ -23,63 +23,43 @@ export class AkagakuChatHistory {
     return this;
   }
 
-  toChatMessageHistory(trimSystemMessage: boolean = false) {
-    return new ChatMessageHistory(this.messages.filter((message) => !trimSystemMessage || !(message.message instanceof SystemMessage)).map((message) => message.message));
-  }
-
-  getMessages(): {timestamp: string, message: BaseMessage}[] {
-    return this.messages;
+  getMessages(windowSize?: number): AkagakuBaseMessage[] {
+    if (windowSize) {
+      return this.messages.slice(-windowSize)
+    }
+    return this.messages.slice(-this.windowSize)
   }
 
   toChatLogs() {
-    return this.messages.filter((message) => message.message.getType() !== 'system').map((message) => {
-      const role = message.message.getType() === 'human' ? "user" : "character"
-      let content = (message.message.content as string).slice((message.message.content as string).indexOf('|') + 1)
-      if (message.message.getType() === 'ai') {
-        const parsedResponse = JSON.parse(message.message.content as string)
-        content = parsedResponse.message
-      }
-      return {
-        timestamp: message.timestamp,
-        role: role,
-        content: content
-      }
-    });
-  }
-}
-
-// 복원 함수
-const reconstructFromLC = (msg: any): BaseMessage => {
-  const type = msg.id[msg.id.length - 1]; // "HumanMessage" 등
-  const content = msg.kwargs.content;
-  const kwargs = msg.kwargs;
-
-  switch (type) {
-    case "HumanMessage":
-      return new HumanMessage(kwargs);
-    case "AIMessage":
-      return new AIMessage(kwargs);
-    case "SystemMessage":
-      return new SystemMessage(kwargs);
-    case "FunctionMessage":
-      return new FunctionMessage(kwargs);
-    case "ToolMessage":
-      return new ToolMessage(kwargs);
-    default:
-      throw new Error(`Unknown message type: ${type}`);
+    return this.messages.filter((message) => message.type !== 'system').map((message) => message.toChatLog());
   }
 }
 
 export const getChatHistory = (character_name: string): AkagakuChatHistory => {
-  let messages: { timestamp: string, message: BaseMessage }[] = [];
-  const maximumSize = configRepository.getConfig("chatHistoryLimit") as number || 100;
+  let rawMessages: any[] = [];
+  const windowSize = configRepository.getConfig("chatHistoryLimit") as number || 100;
   try {
-    messages = chatHistoryStore.get(`${character_name}/chat_history.json`) as { timestamp: string, message: BaseMessage }[] || [];
+    const stored = chatHistoryStore.get(`${character_name}/chat_history.json`);
+    rawMessages = Array.isArray(stored) ? stored : [];
   } catch (err) {
   }
-  console.log(messages)
-  messages = messages.map((message) => ({timestamp: message.timestamp, message: reconstructFromLC(message.message)}))
-  return new AkagakuChatHistory(messages, maximumSize);
+
+  const messages = rawMessages.map(msg => {
+    const baseMsg = { ...msg, createdAt: parseDatetime(msg.createdAt) };
+    switch (msg.type) {
+      case 'system':
+        return new AkagakuSystemMessage(baseMsg);
+      case 'user':
+        return new AkagakuUserMessage(baseMsg);
+      case 'character':
+        return new AkagakuCharacterMessage(baseMsg);
+      default:
+        console.warn(`Unknown message type: ${msg.type}`);
+        return null;
+    }
+  }).filter(msg => msg !== null) as AkagakuBaseMessage[];
+
+  return new AkagakuChatHistory(messages, windowSize);
 }
 
 export const updateChatHistory = async (character_name: string, history: AkagakuChatHistory) => {

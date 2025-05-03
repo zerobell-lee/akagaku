@@ -1,19 +1,19 @@
-import { GhostResponse } from "@shared/types";
+import { GhostResponse, LLMService } from "@shared/types";
 import { Tool, DynamicStructuredTool, DynamicTool } from "@langchain/core/tools";
 import { Runnable, RunnableConfig } from "@langchain/core/runnables";
 import { CharacterSetting } from "main/infrastructure/character/CharacterRepository";
-import { ChainValues } from "@langchain/core/dist/utils/types";
 import { AIResponseParser } from "main/infrastructure/message/MessageParser";
 import { AkagakuChatHistory } from "main/infrastructure/chat/ChatHistoryRepository";
 import { Relationship } from "main/infrastructure/user/RelationshipRepository";
 import { z } from "zod";
+import { AkagakuMessageConverter } from "main/domain/message/AkagakuMessage";
 export interface UserInput {
-  input: string;
+  payload: string;
   isSystemMessage: boolean;
 }
 
 export interface llmProperties {
-    llmService: string;
+    llmService: LLMService;
     modelName: string;
     apiKey: string;
     temperature: number;
@@ -56,7 +56,7 @@ export interface ToolCallResult {
 }
 
 export interface GhostState {
-  input: UserInput;
+  userInput: UserInput;
   skipToolCall: boolean;
   chat_history: AkagakuChatHistory;
   llmProperties: llmProperties;
@@ -75,4 +75,5 @@ export interface GhostState {
   is_user_update_needed: boolean;
   toolAgent: Runnable | null;
   conversationAgent: Runnable | null;
+  messageConverter: AkagakuMessageConverter;
 }
