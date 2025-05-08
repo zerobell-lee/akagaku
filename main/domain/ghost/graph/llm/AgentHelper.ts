@@ -26,6 +26,14 @@ export const createAgentForTool = async (llmProperties: llmProperties, toolPromp
             modelName: 'claude-3-5-haiku-latest',
         }
     }
+
+    if (llmProperties.llmService === 'openai') {
+        newLlmProperties = {
+            ...llmProperties,
+            modelName: 'gpt-4o-mini',
+        }
+    }
+
     const prompt =
         ChatPromptTemplate.fromMessages([
             ["system", toolPrompt],

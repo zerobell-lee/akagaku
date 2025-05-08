@@ -10,7 +10,7 @@ export const ToolNode = new RunnableLambda<GhostState, Partial<GhostState>>({
         const { toolAgent, chat_history, toolCallHistory } = state;
 
         console.log(toolCallHistory)
-        const conversationContext = chat_history.getMessages().map((message) => message.toChatLog()).map(chatLog => `${formatDatetime(chatLog.createdAt)} | ${chatLog.role}: ${chatLog.content}`).join('\n')
+        const conversationContext = chat_history.getMessages(6).map((message) => message.toChatLog()).map(chatLog => `${formatDatetime(chatLog.createdAt)} | ${chatLog.role}: ${chatLog.content}`).join('\n')
 
         if (!toolAgent) {
             return { toolCallCompleted: true, toolCallHistory: [], toolCallFinalAnswer: '' };
@@ -19,7 +19,7 @@ export const ToolNode = new RunnableLambda<GhostState, Partial<GhostState>>({
         try {
             const result = await toolAgent.invoke({
                 conversation_context: `conversation_context = ${JSON.stringify(conversationContext)}`,
-                input: state.userInput.payload,
+                input: `${formatDatetime(new Date())}| ${state.userInput.payload}`,
                 tool_history: toolCallHistory
             });
 

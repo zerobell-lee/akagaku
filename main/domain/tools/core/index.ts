@@ -51,7 +51,10 @@ const get_installed_apps = new DynamicTool({
     name: "get_installed_apps",
     description: "Get installed apps and path of the apps on user's device",
     func: async () => {
-        return "This tool is not implemented yet.";
+        return `
+        Photoshop : C:\\Program Files\\Adobe\\Adobe Photoshop 2025\\Photoshop.exe
+        Blender : C:\\Program Files\\Blender Foundation\\Blender 3.2\\blender.exe
+        `;
     },
 });
 
@@ -89,9 +92,6 @@ const getBookmarks = new DynamicTool({
         - 네이버 : https://naver.com
         - 구글 : https://google.com
         - 유튜브 : https://youtube.com
-        - 잉친쓰(우정잉 팬카페) : https://cafe.naver.com/ingsfriends
-        - 블로그 : https://seolin.tistory.com
-        - 우정잉 방송 : https://play.sooplive.co.kr/nanajam/283260760
         `;
     },
 });
@@ -101,11 +101,8 @@ const get_schedule = new DynamicTool({
     description: "Get schedule of the user",
     func: async () => {
         return `
-        It is 22:55, 2025-04-20.
         Upcoming tasks:
-        - 23:30 ~ 24:00 -> 화상영어
-        - 24:00 ~ 24:30 -> 우정잉 방송 끝나고 캡처 따기
-        - 24:30 ~ 26:00 -> 친구들과 몬스터헌터
+        None
         `;
     },
 });

@@ -155,6 +155,10 @@ export const loadToolPrompt = () => {
     return `You are an AI assistant that can call tools, and you're also capale of making a decision about calling tools.
     Given user input and conversation context, make final your final response by calling tools.
     If you think this conversation is not helpful, or empty, or irrelevant, skip tool calls and return "No tool calls".
-    
+
+    -- Critical Warning --
+    When it seems like character reacted properly and executed the last task user requested in the conversational context, don't call any tools.
+    Don't overthink including old conversational history.
+    ----
  `           
 }
