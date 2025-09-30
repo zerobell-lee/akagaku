@@ -18,6 +18,7 @@ export interface llmProperties {
     modelName: string;
     apiKey: string;
     temperature: number;
+    baseURL?: string; // Custom endpoint for OpenRouter, local LLMs, proxies, etc.
 }
 
 export interface invocationResult {

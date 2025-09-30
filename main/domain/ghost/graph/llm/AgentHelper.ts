@@ -6,12 +6,32 @@ import { createToolCallingAgent } from "langchain/agents";
 import { core_tools } from "main/domain/tools/core";
 import { AgentExecutor } from "langchain/agents";
 import { Runnable } from "@langchain/core/runnables";
+import { ChatOpenAI } from "@langchain/openai";
+import { ChatAnthropic } from "@langchain/anthropic";
 
 const getLlmModel = async (llmProperties: llmProperties): Promise<BaseChatModel> => {
-    const { llmService, modelName, apiKey, temperature } = llmProperties;
+    const { llmService, modelName, apiKey, temperature, baseURL } = llmProperties;
+
+    // Handle custom base URL or special providers
+    if (baseURL || llmService === 'openrouter' || llmService === 'custom') {
+        // Use ChatOpenAI with custom configuration for OpenAI-compatible APIs
+        const effectiveBaseURL = baseURL ||
+            (llmService === 'openrouter' ? 'https://openrouter.ai/api/v1' : undefined);
+
+        return new ChatOpenAI({
+            modelName: modelName,
+            temperature: temperature,
+            openAIApiKey: apiKey,
+            configuration: {
+                baseURL: effectiveBaseURL
+            }
+        });
+    }
+
+    // Use universal loader for standard providers
     let model = null;
     model = await initChatModel(modelName, {
-        modelProvider: llmService,
+        modelProvider: llmService as any,
         temperature: temperature,
         apiKey: apiKey
     });

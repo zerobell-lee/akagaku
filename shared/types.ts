@@ -76,6 +76,10 @@ export interface ConfigResponse {
     openweathermapApiKey: string;
     coinmarketcapApiKey: string;
     chatHistoryLimit: number;
+    // New flexible configuration
+    llmProvider?: LLMProvider;
+    customBaseURL?: string;
+    customApiKey?: string;
 }
 
 export interface UserInput {
@@ -84,6 +88,28 @@ export interface UserInput {
 }
 
 export type LLMService = 'openai' | 'anthropic';
+
+export type LLMProvider =
+    | 'openai'
+    | 'anthropic'
+    | 'openrouter'
+    | 'azure-openai'
+    | 'aws-bedrock'
+    | 'google-vertex'
+    | 'custom';
+
+export interface LLMConfig {
+    provider: LLMProvider;
+    modelName: string;
+    apiKey: string;
+    baseURL?: string;
+    temperature: number;
+    region?: string; // For AWS Bedrock
+    projectId?: string; // For Google Vertex
+}
+
+// Recommended models by provider type (for UI)
+export type RecommendedModelsType = Record<LLMProvider, string[]>;
 
 export interface ChatLog {
     role: string;

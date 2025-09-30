@@ -25,18 +25,39 @@ if (isProd) {
 
 const openaiApiKey = configRepository.getConfig('openaiApiKey') || "";
 const anthropicApiKey = configRepository.getConfig('anthropicApiKey') || "";
-const llmService = configRepository.getConfig('llmService') || "openai";
+const customApiKey = configRepository.getConfig('customApiKey') || "";
+const customBaseURL = configRepository.getConfig('customBaseURL') || "";
+const llmProvider = configRepository.getConfig('llmProvider') || configRepository.getConfig('llmService') || "openai";
 const selectedModel = configRepository.getConfig('selectedModel') || "gpt-5";
 const temperature = configRepository.getConfig('temperature') || 1;
 const characterName = configRepository.getConfig('characterName') as string || "minkee";
 
+// Determine API key based on provider
+const getApiKeyForProvider = (provider: string): string => {
+  switch (provider) {
+    case 'openai':
+    case 'azure-openai':
+      return openaiApiKey;
+    case 'anthropic':
+      return anthropicApiKey;
+    case 'openrouter':
+    case 'aws-bedrock':
+    case 'google-vertex':
+    case 'custom':
+      return customApiKey || openaiApiKey;
+    default:
+      return openaiApiKey;
+  }
+};
+
 const ghost = new GhostService(
   {
     llm_properties: {
-      llmService: llmService as 'openai' | 'anthropic',
+      llmService: (llmProvider === 'openai' || llmProvider === 'anthropic') ? llmProvider : 'openai',
       modelName: selectedModel as string,
-      apiKey: llmService === 'openai' ? openaiApiKey as string : anthropicApiKey as string,
+      apiKey: getApiKeyForProvider(llmProvider),
       temperature: temperature as number,
+      baseURL: customBaseURL || undefined,
     },
     character_setting: CharacterSettingLoader.getCharacterSetting(characterName),
   }
