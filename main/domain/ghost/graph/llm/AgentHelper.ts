@@ -86,16 +86,19 @@ export const createAgentForConversation = async (llmProperties: llmProperties, s
     const model = await getLlmModel(llmProperties);
     const prompt =
         ChatPromptTemplate.fromMessages([
-            ["system", systemPrompt],
-            ["placeholder", "{character_setting}"],
-            ["placeholder", "{available_emoticon}"],
-            ["placeholder", "{user_setting}"],
+            ["system", `${systemPrompt}
+
+{character_setting}
+
+{user_setting}
+
+{relationship}
+
+{available_emoticon}
+
+{tool_call_result}`],
             ["placeholder", "{chat_history}"],
-            ["placeholder", "{relationship}"],
-            ["placeholder", "{conversation_context}"],
-            ["placeholder", "{tool_call_result}"],
             ["human", "{input}"],
-            ["placeholder", "{agent_scratchpad}"],
         ]);
 
     return prompt.pipe(model).withConfig({ runName: "ghost" });

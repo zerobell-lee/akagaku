@@ -31,6 +31,49 @@ export default function SpeechBubblePage() {
                 setCharacterText(message.message)
             }
         })
+
+        // Listen for speech bubble style updates
+        window.ipc.on('update-speech-bubble-style', (styleConfig: {
+            fontFamily?: string;
+            fontSize?: number;
+            customCSS?: string;
+        }) => {
+            // Apply styles with retry to ensure DOM is ready
+            const applyStyles = () => {
+                const speechBubbleElement = document.querySelector('.speech-bubble') as HTMLElement;
+                if (!speechBubbleElement) {
+                    setTimeout(applyStyles, 100);
+                    return;
+                }
+
+                // Apply font family
+                if (styleConfig.fontFamily !== undefined) {
+                    if (styleConfig.fontFamily === '') {
+                        speechBubbleElement.style.fontFamily = '';
+                    } else {
+                        speechBubbleElement.style.fontFamily = styleConfig.fontFamily;
+                    }
+                }
+
+                // Apply font size
+                if (styleConfig.fontSize !== undefined) {
+                    speechBubbleElement.style.fontSize = `${styleConfig.fontSize}px`;
+                }
+
+                // Apply custom CSS
+                if (styleConfig.customCSS !== undefined) {
+                    let customStyleElement = document.getElementById('custom-speech-bubble-style');
+                    if (!customStyleElement) {
+                        customStyleElement = document.createElement('style');
+                        customStyleElement.id = 'custom-speech-bubble-style';
+                        document.head.appendChild(customStyleElement);
+                    }
+                    customStyleElement.textContent = styleConfig.customCSS;
+                }
+            };
+
+            applyStyles();
+        })
     }, [])
 
     useEffect(() => {

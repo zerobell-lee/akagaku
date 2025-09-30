@@ -239,6 +239,19 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
       }
       speechBubbleWindow.once('ready-to-show', () => {
         speechBubbleWindow.showInactive()
+
+        // Send initial speech bubble style
+        const speechBubbleFontFamily = configRepository.getConfig('speechBubbleFontFamily') as string;
+        const speechBubbleFontSize = configRepository.getConfig('speechBubbleFontSize') as number;
+        const speechBubbleCustomCSS = configRepository.getConfig('speechBubbleCustomCSS') as string;
+
+        if (speechBubbleFontFamily || speechBubbleFontSize || speechBubbleCustomCSS) {
+          speechBubbleWindow.webContents.send('update-speech-bubble-style', {
+            fontFamily: speechBubbleFontFamily || '',
+            fontSize: speechBubbleFontSize || 16,
+            customCSS: speechBubbleCustomCSS || ''
+          });
+        }
       })
     }
     if (!speechBubbleWindow.isVisible()) {
@@ -457,7 +470,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     }
   })
 
-  ipcMain.on('save_config', (event, { openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature, openweathermapApiKey, coinmarketcapApiKey, chatHistoryLimit, displayScale, speechBubbleWidth, enableLightweightModel, enableAutoSummarization, summarizationThreshold, langsmithApiKey, enableLangsmithTracing, langsmithProjectName }) => {
+  ipcMain.on('save_config', (event, { openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature, openweathermapApiKey, coinmarketcapApiKey, chatHistoryLimit, displayScale, speechBubbleWidth, enableLightweightModel, enableAutoSummarization, summarizationThreshold, langsmithApiKey, enableLangsmithTracing, langsmithProjectName, speechBubbleFontFamily, speechBubbleFontSize, speechBubbleCustomCSS }) => {
     console.log(openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature, openweathermapApiKey)
     const previousOpenaiApiKey = configRepository.getConfig('openaiApiKey') as string || "";
     const previousAnthropicApiKey = configRepository.getConfig('anthropicApiKey') as string || "";
@@ -526,8 +539,40 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
       console.log('[LangSmith] Tracing disabled');
     }
 
+    // Speech bubble styling
+    if (speechBubbleFontFamily !== undefined) {
+      configRepository.setConfig('speechBubbleFontFamily', speechBubbleFontFamily);
+    }
+    if (speechBubbleFontSize !== undefined) {
+      configRepository.setConfig('speechBubbleFontSize', speechBubbleFontSize);
+    }
+    if (speechBubbleCustomCSS !== undefined) {
+      configRepository.setConfig('speechBubbleCustomCSS', speechBubbleCustomCSS);
+    }
+
+    // Send updated config to speech bubble window
+    if (speechBubbleWindow) {
+      speechBubbleWindow.webContents.send('update-speech-bubble-style', {
+        fontFamily: speechBubbleFontFamily,
+        fontSize: speechBubbleFontSize,
+        customCSS: speechBubbleCustomCSS
+      });
+    }
+
     if (updateRequired) {
       ghost.updateExecuter({ openaiApiKey: openaiApiKey, anthropicApiKey: anthropicApiKey, llmService: llmService as 'openai' | 'anthropic', modelName: selectedModel, temperature: temperature });
+    }
+  })
+
+  // Get system fonts
+  ipcMain.handle('get-system-fonts', async () => {
+    try {
+      const fontList = require('font-list');
+      const fonts = await fontList.getFonts();
+      return fonts;
+    } catch (error) {
+      console.error('Failed to get system fonts:', error);
+      return [];
     }
   })
 

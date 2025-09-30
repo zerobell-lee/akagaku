@@ -73,7 +73,11 @@ export const ToolNode = new RunnableLambda<GhostState, Partial<GhostState>>({
                 }
 
                 if (finalAnswer.trim() === '' || (Array.isArray(finalAnswer) && finalAnswer.length === 0)) {
-                    finalAnswer = toolCallHistory[toolCallHistory.length - 1].content as string
+                    if (toolCallHistory.length > 0) {
+                        finalAnswer = toolCallHistory[toolCallHistory.length - 1].content as string;
+                    } else {
+                        finalAnswer = 'No tool calls';
+                    }
                 }
                 return { toolCallCompleted: true, toolCallHistory: null, toolCallFinalAnswer: finalAnswer };
             }

@@ -75,12 +75,12 @@ export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>(
 
         const payload = {
             input: newMessage.content as string,
-            character_setting: convertContextInputs('character_setting', essentialCharacterSetting),
-            user_setting: convertContextInputs('user_setting', user_setting),
-            chat_history: convertContextInputs('chat_history', langchainChatHistory),
-            available_emoticon: convertContextInputs('available_emoticon', character_setting.available_emoticon || '["neutral"]'),
-            relationship: convertContextInputs('relationship', relationship.toRaw()),
-            tool_call_result: `tool_call_result = ${toolCallFinalAnswer}`
+            character_setting: convertContextInputs('Character', essentialCharacterSetting),
+            user_setting: convertContextInputs('User', user_setting),
+            chat_history: langchainChatHistory,  // Pass as BaseMessage[] directly
+            available_emoticon: `Available emoticons: ${character_setting.available_emoticon || '["neutral"]'}`,
+            relationship: convertContextInputs('Relationship', relationship.toRaw()),
+            tool_call_result: toolCallFinalAnswer ? `Tool results:\n${toolCallFinalAnswer}` : ''
         }
         PerformanceMonitor.start('LLM Response Generation');
         const response = await conversationAgent.invoke(payload);

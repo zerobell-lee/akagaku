@@ -91,6 +91,10 @@ export interface ConfigResponse {
     langsmithApiKey?: string;
     enableLangsmithTracing?: boolean;
     langsmithProjectName?: string;
+    // Speech bubble styling
+    speechBubbleFontFamily?: string;
+    speechBubbleFontSize?: number;
+    speechBubbleCustomCSS?: string;
 }
 
 export interface UserInput {

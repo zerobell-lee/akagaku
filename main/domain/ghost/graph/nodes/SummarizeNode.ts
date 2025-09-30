@@ -111,14 +111,24 @@ Provide a factual summary (3-5 sentences) covering topics discussed, facts menti
                 isSummary: true
             });
 
-            // Keep ALL original messages + add new summary
-            // Summary is for LLM context only, original messages stay in DB for logs
+            // Insert summary after summarized messages, before recent messages
+            // Structure: [msg1..msg10] + [SUMMARY] + [msg11, msg12] + future messages
+            const summaryInsertIndex = lastSummaryIndex >= 0
+                ? lastSummaryIndex + 1 + messagesToSummarize.length  // After old summary + summarized messages
+                : messagesToSummarize.length;  // After summarized messages
+
+            const newMessages = [
+                ...allMessages.slice(0, summaryInsertIndex),
+                summaryMessage,
+                ...allMessages.slice(summaryInsertIndex)
+            ];
+
             const newChatHistory = new AkagakuChatHistory(
-                [...allMessages, summaryMessage],
-                allMessages.length
+                newMessages,
+                newMessages.length
             );
 
-            console.log(`[Performance] Summarization complete: Summarized ${messagesToSummarize.length} messages, added summary to ${allMessages.length} total messages`);
+            console.log(`[Performance] Summarization complete: Inserted summary at index ${summaryInsertIndex}, total ${newMessages.length} messages`);
 
             return {
                 chat_history: newChatHistory

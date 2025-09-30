@@ -48,6 +48,12 @@ export default function Config() {
     // Developer settings
     const [langsmithApiKey, setLangsmithApiKey] = useState('');
     const [enableLangsmithTracing, setEnableLangsmithTracing] = useState(false);
+
+    // Speech bubble styling
+    const [speechBubbleFontFamily, setSpeechBubbleFontFamily] = useState('');
+    const [speechBubbleFontSize, setSpeechBubbleFontSize] = useState(16);
+    const [speechBubbleCustomCSS, setSpeechBubbleCustomCSS] = useState('');
+    const [systemFonts, setSystemFonts] = useState<string[]>([]);
     const [langsmithProjectName, setLangsmithProjectName] = useState('akagaku');
 
     // Legacy support - map old llmService to new provider
@@ -81,6 +87,10 @@ export default function Config() {
             langsmithApiKey,
             enableLangsmithTracing,
             langsmithProjectName,
+            // Speech bubble styling
+            speechBubbleFontFamily,
+            speechBubbleFontSize,
+            speechBubbleCustomCSS,
         });
         setToastMessage('Config saved!');
     }
@@ -119,6 +129,11 @@ export default function Config() {
         setLangsmithApiKey(response.langsmithApiKey || '');
         setEnableLangsmithTracing(response.enableLangsmithTracing || false);
         setLangsmithProjectName(response.langsmithProjectName || 'akagaku');
+
+        // Speech bubble styling
+        setSpeechBubbleFontFamily(response.speechBubbleFontFamily || '');
+        setSpeechBubbleFontSize(response.speechBubbleFontSize || 16);
+        setSpeechBubbleCustomCSS(response.speechBubbleCustomCSS || '');
 
         setIsLoading(false);
     }
@@ -159,6 +174,11 @@ export default function Config() {
             updateConfig(response);
         });
         window.ipc.send('user-action', 'REQUEST_CONFIG');
+
+        // Load system fonts
+        window.ipc.invoke('get-system-fonts').then((fonts: string[]) => {
+            setSystemFonts(fonts);
+        });
     }, []);
 
     if (isLoading) {
@@ -478,6 +498,75 @@ export default function Config() {
                     Width in pixels. Default: 500. Requires restart.
                 </span>
             </label>
+
+            {/* Speech Bubble Styling Section */}
+            <div className="border-t border-gray-700 pt-4 mt-4">
+                <h3 className="text-xl font-semibold mb-3">Speech Bubble Styling</h3>
+
+                {/* Font Family */}
+                <label className="flex flex-col gap-2 mb-4">
+                    <span className="text-lg">Font Family</span>
+                    <select
+                        className="bg-gray-700 text-white px-4 py-2 rounded-md"
+                        value={speechBubbleFontFamily}
+                        onChange={(e) => setSpeechBubbleFontFamily(e.target.value)}
+                    >
+                        <option value="">Default (System Font)</option>
+                        {systemFonts.map((font) => (
+                            <option key={font} value={font}>{font}</option>
+                        ))}
+                    </select>
+                    <span className="text-sm text-gray-400">
+                        Select font for speech bubble text
+                    </span>
+                    {/* Font Preview */}
+                    <div
+                        className="bg-gray-600 text-white px-4 py-3 rounded-md mt-2"
+                        style={{
+                            fontFamily: speechBubbleFontFamily || 'inherit',
+                            fontSize: `${speechBubbleFontSize}px`
+                        }}
+                    >
+                        안녕하세요! Hello! 가나다라마바사 ABCDEFG 1234567890
+                    </div>
+                </label>
+
+                {/* Font Size */}
+                <label className="flex flex-col gap-2 mb-4">
+                    <span className="text-lg">Font Size</span>
+                    <input
+                        type="number"
+                        value={speechBubbleFontSize}
+                        onChange={(e) => setSpeechBubbleFontSize(Number(e.target.value))}
+                        className="bg-gray-700 text-white px-4 py-2 rounded-md"
+                        style={{width: '150px'}}
+                        min="10"
+                        max="32"
+                    />
+                    <span className="text-sm text-gray-400">
+                        Font size in pixels. Default: 16
+                    </span>
+                </label>
+
+                {/* Custom CSS */}
+                <label className="flex flex-col gap-2">
+                    <span className="text-lg">Custom CSS Override</span>
+                    <textarea
+                        value={speechBubbleCustomCSS}
+                        onChange={(e) => setSpeechBubbleCustomCSS(e.target.value)}
+                        className="bg-gray-700 text-white px-4 py-2 rounded-md font-mono text-sm"
+                        rows={6}
+                        placeholder="/* Custom CSS rules for speech bubble */
+.speechBubble {
+  color: #ffffff;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}"
+                    />
+                    <span className="text-sm text-gray-400">
+                        Advanced: Add custom CSS rules to override speech bubble styling
+                    </span>
+                </label>
+            </div>
         </div>
     );
 
