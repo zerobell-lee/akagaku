@@ -8,6 +8,7 @@ import { AkagakuCharacterMessage, createMessageFromUserInput } from "main/domain
 import { RunnableLambda } from "@langchain/core/runnables";
 import { Affection } from "main/domain/value-objects/Affection";
 import { Attitude } from "main/domain/value-objects/Attitude";
+import { Relationship } from "main/domain/entities/Relationship";
 
 const getCurrentTimestamp = (sentAt: Date) => {
     return formatDatetime(sentAt);
@@ -35,7 +36,8 @@ export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>(
         }
 
         const sentAt = new Date();
-        let relationship = getCharacterRelationships(characterId)
+        const rawRelationship = getCharacterRelationships(characterId)
+        let relationship = Relationship.fromRaw(rawRelationship);
         let newMessage = createMessageFromUserInput(userInput, sentAt)
         let langchainChatHistory: BaseMessage[] = chat_history.getMessages().map((message) => messageConverter.convertToLangChainMessage(message));
 
@@ -45,7 +47,7 @@ export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>(
             user_setting: convertContextInputs('user_setting', user_setting),
             chat_history: convertContextInputs('chat_history', langchainChatHistory),
             available_emoticon: convertContextInputs('available_emoticon', character_setting.available_emoticon || '["neutral"]'),
-            relationship: convertContextInputs('relationship', relationship),
+            relationship: convertContextInputs('relationship', relationship.toRaw()),
             tool_call_result: `tool_call_result = ${toolCallFinalAnswer}`
         }
         const response = await conversationAgent.invoke(payload);
@@ -54,16 +56,10 @@ export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>(
             const parsed = aiResponseParser.parseGhostResponse(response);
             console.log('response', response)
 
-            // Use Affection Value Object
-            const currentAffection = Affection.create(relationship.affection_to_user);
-            const updatedAffection = currentAffection.add(parsed.add_affection);
+            // Use Relationship Entity with Value Objects
+            const updatedAffection = relationship.getAffection().add(parsed.add_affection);
             const currentAttitude = getCurrentAttitude(characterId, updatedAffection);
-
-            relationship = {
-                character: characterId,
-                affection_to_user: updatedAffection.getValue(),
-                attitude_to_user: currentAttitude.getValue()
-            }
+            const updatedRelationship = relationship.update(parsed.add_affection, currentAttitude);
             const receivedAt = new Date();
             const characterMessage = new AkagakuCharacterMessage({
                 content: parsed,
@@ -75,7 +71,7 @@ export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>(
                 chat_history: chat_history,
                 invocation_result: { success: true, trial_count: currentTrialCount },
                 update_payload: {
-                    relationship: relationship,
+                    relationship: updatedRelationship.toRaw(),
                     history: chat_history
                 },
                 final_response: parsed
