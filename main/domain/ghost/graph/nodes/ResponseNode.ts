@@ -6,17 +6,16 @@ import { CharacterSettingLoader } from "main/infrastructure/character/CharacterR
 import { AIResponseParseError } from "main/infrastructure/message/MessageParser";
 import { AkagakuCharacterMessage, createMessageFromUserInput } from "main/domain/message/AkagakuMessage";
 import { RunnableLambda } from "@langchain/core/runnables";
+import { Affection } from "main/domain/value-objects/Affection";
+import { Attitude } from "main/domain/value-objects/Attitude";
 
 const getCurrentTimestamp = (sentAt: Date) => {
     return formatDatetime(sentAt);
 }
 
-const getCurrentAttitude = (characterName: string, affection: number) => {
-    return CharacterSettingLoader.calcAttitude(characterName, affection);
-}
-
-const updateAffection = (affection: number, add_affection: number) => {
-    return Math.min(Math.max(affection + add_affection, 0), 100);
+const getCurrentAttitude = (characterName: string, affection: Affection): Attitude => {
+    const attitudeString = CharacterSettingLoader.calcAttitude(characterName, affection.getValue());
+    return Attitude.create(attitudeString);
 }
 
 const convertContextInputs = (fieldName: string, input: any) => {
@@ -55,12 +54,15 @@ export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>(
             const parsed = aiResponseParser.parseGhostResponse(response);
             console.log('response', response)
 
-            const updated_affection = updateAffection(relationship.affection_to_user, parsed.add_affection);
-            const currentAttitude = getCurrentAttitude(characterId, updated_affection);
+            // Use Affection Value Object
+            const currentAffection = Affection.create(relationship.affection_to_user);
+            const updatedAffection = currentAffection.add(parsed.add_affection);
+            const currentAttitude = getCurrentAttitude(characterId, updatedAffection);
+
             relationship = {
                 character: characterId,
-                affection_to_user: updated_affection,
-                attitude_to_user: currentAttitude
+                affection_to_user: updatedAffection.getValue(),
+                attitude_to_user: currentAttitude.getValue()
             }
             const receivedAt = new Date();
             const characterMessage = new AkagakuCharacterMessage({
