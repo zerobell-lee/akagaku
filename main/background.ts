@@ -2,7 +2,7 @@ import path from 'path'
 import { app, BrowserWindow, dialog, ipcMain, protocol, screen, Tray } from 'electron'
 import serve from 'electron-serve'
 import { createWindow } from './helpers'
-import { Ghost } from './domain/ghost/ghost_graph'
+import { GhostService } from './infrastructure/ghost/GhostService'
 import { configRepository } from './infrastructure/config/ConfigRepository'
 import { CharacterSettingLoader } from './infrastructure/character/CharacterRepository'
 import fs from 'fs'
@@ -30,7 +30,7 @@ const selectedModel = configRepository.getConfig('selectedModel') || "gpt-4o-min
 const temperature = configRepository.getConfig('temperature') || 1;
 const characterName = configRepository.getConfig('characterName') as string || "minkee";
 
-const ghost = new Ghost(
+const ghost = new GhostService(
   {
     llm_properties: {
       llmService: llmService as 'openai' | 'anthropic',

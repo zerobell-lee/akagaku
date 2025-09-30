@@ -34,20 +34,30 @@ main/
 ├── domain/                     # Pure business logic (no framework dependencies)
 │   ├── entities/              # Character, User, Relationship
 │   ├── value-objects/         # Affection, Attitude, Emoticon
-│   └── repositories/          # Repository interfaces
+│   ├── repositories/          # Repository interfaces (ICharacterRepository, etc.)
+│   ├── ghost/                 # LangGraph state machine definition
+│   ├── message/               # Message domain models
+│   └── tools/                 # Tool definitions
 ├── application/               # Use cases and application logic
 │   ├── use-cases/            # SendMessage, GreetUser, UpdateRelationship
-│   ├── ports/                # ILLMService, IMessageParser
-│   └── dtos/                 # Data Transfer Objects
+│   ├── ports/                # ILLMService, IMessageParser, IMessageConverter
+│   └── dtos/                 # ConversationDTOs (SendMessageInput, ConversationOutput)
 ├── infrastructure/            # Framework implementations
-│   ├── character/            # YAML-based character repository
-│   ├── chat/                 # Electron Store chat history
-│   ├── user/                 # User and relationship persistence
-│   └── config/               # Configuration management
-└── presentation/             # Electron main process
+│   ├── character/            # YamlCharacterRepository (implements ICharacterRepository)
+│   ├── chat/                 # ElectronStoreChatHistoryRepository
+│   ├── user/                 # ElectronStoreUserRepository, RelationshipRepository
+│   ├── config/               # ConfigRepository
+│   ├── llm/                  # LangChainAdapter (implements ILLMService)
+│   └── ghost/                # GhostService (facade for use cases)
+└── presentation/             # Electron main process (background.ts)
 ```
 
 **Dependency Direction**: Infrastructure → Application → Domain
+
+**Clean Architecture Progress**:
+- ✅ **Phase 1-2 Complete**: Domain layer (entities, value objects, repository interfaces) and Application layer (use cases, ports, DTOs) established
+- ⚠️ **Phase 3 Status**: GhostService created as infrastructure facade, but currently wraps existing Ghost class for backward compatibility
+- 🔄 **Future Work**: Full use case extraction from Ghost class to complete Clean Architecture separation
 
 ### Core Architecture Pattern: LangGraph State Machine
 
@@ -73,14 +83,15 @@ The application uses **LangGraph** to implement a conversation flow as a state m
 4. **UpdateUserSettingNode** ([main/domain/ghost/graph/nodes/UpdateNode.ts](main/domain/ghost/graph/nodes/UpdateNode.ts))
    - Updates user relationship data periodically
 
-### Ghost Class
+### GhostService (Infrastructure Layer)
 
-The `Ghost` class ([main/domain/ghost/ghost_graph.ts](main/domain/ghost/ghost_graph.ts)) is the main conversation orchestrator:
-- Initializes two separate LangChain agents:
-  - `toolAgent`: For tool-based operations
-  - `conversationAgent`: For character dialogue generation
-- Maintains conversation state and character settings
+The `GhostService` class ([main/infrastructure/ghost/GhostService.ts](main/infrastructure/ghost/GhostService.ts)) is a facade for conversation:
+- Wraps the existing `Ghost` class to maintain Clean Architecture boundaries
+- Provides stable interface for UI layer
+- Delegates all logic to `Ghost` class internally
 - Provides methods: `sayHello()`, `sayGoodbye()`, `doChitChat()`, `sendRawMessage()`
+
+**Note**: Currently a simple wrapper for backward compatibility. Future refactoring will extract use cases from Ghost class.
 
 ### Message System
 
@@ -118,14 +129,42 @@ UpdateChatHistoryNode → UpdateUserSettingNode (every 5 conversations)
 [END] → Return GhostResponse
 ```
 
+### Use Cases (Application Layer) - Prepared for Future Integration
+
+Use cases have been defined following Clean Architecture principles:
+
+1. **SendMessageUseCase** ([main/application/use-cases/SendMessageUseCase.ts](main/application/use-cases/SendMessageUseCase.ts))
+   - Ready to orchestrate user message handling
+   - Will coordinate repositories, LLM service, and domain entities
+   - **Status**: Implementation complete, pending integration with LangGraph
+
+2. **GreetUserUseCase** ([main/application/use-cases/GreetUserUseCase.ts](main/application/use-cases/GreetUserUseCase.ts))
+   - Ready to handle first-time and returning user greetings
+   - Will contextualize greetings based on chat history
+   - **Status**: Implementation complete, pending integration with LangGraph
+
+3. **UpdateRelationshipUseCase** ([main/application/use-cases/UpdateRelationshipUseCase.ts](main/application/use-cases/UpdateRelationshipUseCase.ts))
+   - ✅ **Fully Functional**: Updates character-user relationship scores
+   - Uses domain value objects (Affection, Attitude)
+   - Persists through repository
+
+### LangChain Adapter (Infrastructure Layer) - Prepared for Future Integration
+
+**LangChainAdapter** ([main/infrastructure/llm/LangChainAdapter.ts](main/infrastructure/llm/LangChainAdapter.ts)):
+- Implements `ILLMService`, `IMessageParser`, `IMessageConverter` ports
+- Ready to wrap LangGraph state machine execution
+- Parses LLM responses into structured format
+- Converts between domain messages and LangChain messages
+- **Status**: Implementation complete, pending full integration with use cases
+
 ### Repository Pattern
 
-The application uses repository pattern for data access:
-- `ConfigRepository`: Electron-store based configuration (API keys, model settings)
-- `CharacterRepository`: YAML-based character loading
-- `ChatHistoryRepository`: Conversation history management
-- `UserRepository`: User settings and preferences
-- `RelationshipRepository`: Character-user relationship scores
+The application uses repository pattern for data access with interfaces in domain layer:
+- `IConfigRepository` → `ConfigRepository`: Electron-store based configuration (API keys, model settings)
+- `ICharacterRepository` → `YamlCharacterRepository`: YAML-based character loading
+- `IChatHistoryRepository` → `ElectronStoreChatHistoryRepository`: Conversation history management
+- `IUserRepository` → `ElectronStoreUserRepository`: User settings and preferences
+- `IRelationshipRepository` → `ElectronStoreRelationshipRepository`: Character-user relationship scores
 
 ### Electron IPC Communication
 
