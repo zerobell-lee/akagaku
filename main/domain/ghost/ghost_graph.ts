@@ -185,7 +185,7 @@ export class Ghost {
     }
 
     async resetChatHistory() {
-        const history = new AkagakuChatHistory([], configRepository.getConfig('chatHistoryLimit') as number || 100);
+        const history = new AkagakuChatHistory([], configRepository.getConfig('chatHistoryLimit') as number || 20);
         await updateChatHistory(this.character_setting.character_id, history);
     }
 

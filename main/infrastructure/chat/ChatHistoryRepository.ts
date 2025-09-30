@@ -39,7 +39,7 @@ export class AkagakuChatHistory {
 class ElectronStoreChatHistoryRepository implements IChatHistoryRepository {
   getChatHistory(character_name: string): AkagakuChatHistory {
     let rawMessages: any[] = [];
-    const windowSize = configRepository.getConfig("chatHistoryLimit") as number || 100;
+    const windowSize = configRepository.getConfig("chatHistoryLimit") as number || 20;
     try {
       const stored = chatHistoryStore.get(`${character_name}/chat_history.json`);
       rawMessages = Array.isArray(stored) ? stored : [];

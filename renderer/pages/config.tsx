@@ -38,7 +38,7 @@ export default function Config() {
     const [toastMessage, setToastMessage] = useState('');
     const [openweathermapApiKey, setOpenweathermapApiKey] = useState('');
     const [coinmarketcapApiKey, setCoinmarketcapApiKey] = useState('');
-    const [chatHistoryLimit, setChatHistoryLimit] = useState(100);
+    const [chatHistoryLimit, setChatHistoryLimit] = useState(20);
     const [displayScale, setDisplayScale] = useState(0.5);
     const [speechBubbleWidth, setSpeechBubbleWidth] = useState(500);
     const [enableLightweightModel, setEnableLightweightModel] = useState(true);
@@ -330,16 +330,21 @@ export default function Config() {
         <div className="space-y-4">
             {/* Chat History Limit */}
             <label className="flex flex-col gap-2">
-                <span className="text-2xl">Chat History Limit</span>
+                <span className="text-2xl">Chat History Window</span>
                 <input
                     type="number"
                     value={chatHistoryLimit}
                     onChange={(e) => setChatHistoryLimit(Number(e.target.value))}
                     className="bg-gray-700 text-white px-4 py-2 rounded-md"
                     style={{width: '150px'}}
+                    min="5"
+                    max="100"
                 />
                 <span className="text-sm text-gray-400">
-                    Maximum number of messages to keep in chat history
+                    Number of recent messages sent to LLM (default: 20). Lower = faster response & lower cost. Higher = better context.
+                </span>
+                <span className="text-xs text-yellow-400">
+                    ⚠️ High values (50+) can cause slow responses (8+ seconds). Recommended: 15-30 for balance.
                 </span>
             </label>
 

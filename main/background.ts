@@ -334,7 +334,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
         temperature: configRepository.getConfig('temperature') as number || 1,
         openweathermapApiKey: configRepository.getConfig('openweathermapApiKey') as string || "",
         coinmarketcapApiKey: configRepository.getConfig('coinmarketcapApiKey') as string || "",
-        chatHistoryLimit: configRepository.getConfig('chatHistoryLimit') as number || 100,
+        chatHistoryLimit: configRepository.getConfig('chatHistoryLimit') as number || 20,
         displayScale: configRepository.getConfig('displayScale') as number || 0.5,
         speechBubbleWidth: configRepository.getConfig('speechBubbleWidth') as number || 500,
         enableLightweightModel: configRepository.getConfig('enableLightweightModel') !== false,
@@ -454,7 +454,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     const previousTemperature = configRepository.getConfig('temperature') as number || 1;
     const previousOpenweathermapApiKey = configRepository.getConfig('openweathermapApiKey') as string || "";
     const previousCoinmarketcapApiKey = configRepository.getConfig('coinmarketcapApiKey') as string || "";
-    const previousChatHistoryLimit = configRepository.getConfig('chatHistoryLimit') as number || 100;
+    const previousChatHistoryLimit = configRepository.getConfig('chatHistoryLimit') as number || 20;
     const previousDisplayScale = configRepository.getConfig('displayScale') as number || 0.5;
     const previousSpeechBubbleWidth = configRepository.getConfig('speechBubbleWidth') as number || 500;
 
