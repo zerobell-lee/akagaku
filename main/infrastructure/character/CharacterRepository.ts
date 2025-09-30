@@ -4,6 +4,7 @@ import { logger } from '../config/logger';
 import { app } from 'electron';
 import path from 'path';
 import { AffectionAttitudeMap, CharacterAppearance, CharacterProperties, TouchableArea } from '@shared/types';
+import { ICharacterRepository } from 'main/domain/repositories/ICharacterRepository';
 
 export interface CharacterSetting {
     character_id: string;
@@ -15,13 +16,13 @@ export interface CharacterSetting {
 
 const dataDirectory = path.join(app.getAppPath(), 'data');
 
-const CharacterSettingLoader = {
-    getCharacterSetting: (character_id: string): CharacterSetting => {
+class YamlCharacterRepository implements ICharacterRepository {
+    getCharacterSetting(character_id: string): CharacterSetting {
         const character_setting = yaml.load(fs.readFileSync(path.join(dataDirectory, `character/${character_id}/character_description.yaml`), 'utf8')) as CharacterSetting;
         return { ...character_setting, character_id };
-    },
+    }
 
-    calcAttitude: (character_name: string, affection: number) => {
+    calcAttitude(character_name: string, affection: number): string {
         let affection_attitude_map;
         try {
             affection_attitude_map = yaml.load(fs.readFileSync(path.join(dataDirectory, `character/${character_name}/affection_attitude_map.yaml`), 'utf8')) as AffectionAttitudeMap;
@@ -36,11 +37,30 @@ const CharacterSettingLoader = {
             }
         }
         return affection_attitude_map.conditions[0].attitude;
-    },
+    }
 
-    getCharacterAppearance: (character_name: string): CharacterAppearance => {
+    getCharacterAppearance(character_name: string): CharacterAppearance {
         return yaml.load(fs.readFileSync(path.join(dataDirectory, `character/${character_name}/appearance.yaml`), 'utf8')) as CharacterAppearance;
     }
 }
-export { CharacterSettingLoader };
+
+// Singleton instance
+const characterRepository = new YamlCharacterRepository();
+
+// Backward compatibility - keep old interface
+const CharacterSettingLoader = {
+    getCharacterSetting: (character_id: string): CharacterSetting => {
+        return characterRepository.getCharacterSetting(character_id);
+    },
+
+    calcAttitude: (character_name: string, affection: number): string => {
+        return characterRepository.calcAttitude(character_name, affection);
+    },
+
+    getCharacterAppearance: (character_name: string): CharacterAppearance => {
+        return characterRepository.getCharacterAppearance(character_name);
+    }
+}
+
+export { CharacterSettingLoader, characterRepository };
 

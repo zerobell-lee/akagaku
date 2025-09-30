@@ -6,17 +6,17 @@ import { CharacterSettingLoader } from "main/infrastructure/character/CharacterR
 import { AIResponseParseError } from "main/infrastructure/message/MessageParser";
 import { AkagakuCharacterMessage, createMessageFromUserInput } from "main/domain/message/AkagakuMessage";
 import { RunnableLambda } from "@langchain/core/runnables";
+import { Affection } from "main/domain/value-objects/Affection";
+import { Attitude } from "main/domain/value-objects/Attitude";
+import { Relationship } from "main/domain/entities/Relationship";
 
 const getCurrentTimestamp = (sentAt: Date) => {
     return formatDatetime(sentAt);
 }
 
-const getCurrentAttitude = (characterName: string, affection: number) => {
-    return CharacterSettingLoader.calcAttitude(characterName, affection);
-}
-
-const updateAffection = (affection: number, add_affection: number) => {
-    return Math.min(Math.max(affection + add_affection, 0), 100);
+const getCurrentAttitude = (characterName: string, affection: Affection): Attitude => {
+    const attitudeString = CharacterSettingLoader.calcAttitude(characterName, affection.getValue());
+    return Attitude.create(attitudeString);
 }
 
 const convertContextInputs = (fieldName: string, input: any) => {
@@ -36,7 +36,8 @@ export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>(
         }
 
         const sentAt = new Date();
-        let relationship = getCharacterRelationships(characterId)
+        const rawRelationship = getCharacterRelationships(characterId)
+        let relationship = Relationship.fromRaw(rawRelationship);
         let newMessage = createMessageFromUserInput(userInput, sentAt)
         let langchainChatHistory: BaseMessage[] = chat_history.getMessages().map((message) => messageConverter.convertToLangChainMessage(message));
 
@@ -46,7 +47,7 @@ export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>(
             user_setting: convertContextInputs('user_setting', user_setting),
             chat_history: convertContextInputs('chat_history', langchainChatHistory),
             available_emoticon: convertContextInputs('available_emoticon', character_setting.available_emoticon || '["neutral"]'),
-            relationship: convertContextInputs('relationship', relationship),
+            relationship: convertContextInputs('relationship', relationship.toRaw()),
             tool_call_result: `tool_call_result = ${toolCallFinalAnswer}`
         }
         const response = await conversationAgent.invoke(payload);
@@ -55,13 +56,10 @@ export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>(
             const parsed = aiResponseParser.parseGhostResponse(response);
             console.log('response', response)
 
-            const updated_affection = updateAffection(relationship.affection_to_user, parsed.add_affection);
-            const currentAttitude = getCurrentAttitude(characterId, updated_affection);
-            relationship = {
-                character: characterId,
-                affection_to_user: updated_affection,
-                attitude_to_user: currentAttitude
-            }
+            // Use Relationship Entity with Value Objects
+            const updatedAffection = relationship.getAffection().add(parsed.add_affection);
+            const currentAttitude = getCurrentAttitude(characterId, updatedAffection);
+            const updatedRelationship = relationship.update(parsed.add_affection, currentAttitude);
             const receivedAt = new Date();
             const characterMessage = new AkagakuCharacterMessage({
                 content: parsed,
@@ -73,7 +71,7 @@ export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>(
                 chat_history: chat_history,
                 invocation_result: { success: true, trial_count: currentTrialCount },
                 update_payload: {
-                    relationship: relationship,
+                    relationship: updatedRelationship.toRaw(),
                     history: chat_history
                 },
                 final_response: parsed
