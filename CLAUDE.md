@@ -25,6 +25,30 @@ npm run postinstall      # Install Electron app dependencies (runs automatically
 
 ## Architecture
 
+### Clean Architecture Structure
+
+The project follows **Clean Architecture** principles with clear separation of concerns:
+
+```
+main/
+├── domain/                     # Pure business logic (no framework dependencies)
+│   ├── entities/              # Character, User, Relationship
+│   ├── value-objects/         # Affection, Attitude, Emoticon
+│   └── repositories/          # Repository interfaces
+├── application/               # Use cases and application logic
+│   ├── use-cases/            # SendMessage, GreetUser, UpdateRelationship
+│   ├── ports/                # ILLMService, IMessageParser
+│   └── dtos/                 # Data Transfer Objects
+├── infrastructure/            # Framework implementations
+│   ├── character/            # YAML-based character repository
+│   ├── chat/                 # Electron Store chat history
+│   ├── user/                 # User and relationship persistence
+│   └── config/               # Configuration management
+└── presentation/             # Electron main process
+```
+
+**Dependency Direction**: Infrastructure → Application → Domain
+
 ### Core Architecture Pattern: LangGraph State Machine
 
 The application uses **LangGraph** to implement a conversation flow as a state machine with the following nodes:
