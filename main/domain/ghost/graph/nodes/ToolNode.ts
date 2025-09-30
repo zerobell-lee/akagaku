@@ -31,6 +31,21 @@ export const ToolNode = new RunnableLambda<GhostState, Partial<GhostState>>({
 
             if (toolCalls.length === 0) {
                 let finalAnswer = result.content
+
+                // Handle various response formats
+                if (typeof finalAnswer === 'string') {
+                    // Remove common explanatory text patterns
+                    finalAnswer = finalAnswer
+                        .replace(/^(Based on|According to|Looking at|Given that|Since|Considering).*?[,:]?\s*/i, '')
+                        .replace(/^(I|The|This).*?(don't need|no need|not necessary|already|sufficient).*?\./i, 'No tool calls')
+                        .trim();
+
+                    // If it's just "No tool calls" or similar, clean it up
+                    if (/^no\s+tool\s*calls?/i.test(finalAnswer)) {
+                        finalAnswer = 'No tool calls';
+                    }
+                }
+
                 if (finalAnswer.trim() === '' || (Array.isArray(finalAnswer) && finalAnswer.length === 0)) {
                     finalAnswer = toolCallHistory[toolCallHistory.length - 1].content as string
                 }

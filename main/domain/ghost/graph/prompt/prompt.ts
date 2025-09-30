@@ -42,5 +42,6 @@ export const loadSystemPrompt = (llmService: string) => {
 }
 
 export const loadToolPrompt = () => {
-    return `Call tools only when necessary. Return "No tool calls" if task already done or irrelevant.`
+    return `Call tools if needed. If no tools needed, return EXACTLY: "No tool calls"
+DO NOT explain. DO NOT add reasoning. ONLY "No tool calls" with nothing else.`
 }
