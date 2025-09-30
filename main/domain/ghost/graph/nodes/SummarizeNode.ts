@@ -2,7 +2,7 @@ import { RunnableLambda } from "@langchain/core/runnables";
 import { GhostState } from "../states";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatAnthropic } from "@langchain/anthropic";
-import { AkagakuChatHistory } from "main/infrastructure/chat/ChatHistoryRepository";
+import { AkagakuChatHistory, chatHistoryRepository } from "main/infrastructure/chat/ChatHistoryRepository";
 import { AkagakuSystemMessage } from "main/domain/message/AkagakuMessage";
 import { formatDatetime } from "main/infrastructure/utils/DatetimeStringUtils";
 import { configRepository } from "main/infrastructure/config/ConfigRepository";
@@ -12,8 +12,6 @@ import { configRepository } from "main/infrastructure/config/ConfigRepository";
  * Automatically summarizes conversation when message count exceeds threshold
  * Reduces token usage by compressing old messages into summary
  */
-
-const KEEP_RECENT_MESSAGES = 20; // Keep last 20 messages after summarization
 
 export const SummarizeNode = new RunnableLambda<GhostState, Partial<GhostState>>({
     func: async (state: GhostState) => {
@@ -27,24 +25,41 @@ export const SummarizeNode = new RunnableLambda<GhostState, Partial<GhostState>>
 
         // Get threshold from config (default 40)
         const summarizationThreshold = configRepository.getConfig('summarizationThreshold') as number || 40;
-        const allMessages = chat_history.getMessages(999);
+        const allMessages = chat_history.getAllMessagesInternal();
 
-        // Count only non-summary messages (actual conversation)
-        const actualConversationCount = allMessages.filter(msg => !msg.isSummary).length;
+        // Find last summary index
+        let lastSummaryIndex = -1;
+        for (let i = allMessages.length - 1; i >= 0; i--) {
+            if (allMessages[i].isSummary === true) {
+                lastSummaryIndex = i;
+                break;
+            }
+        }
+
+        // Get messages after last summary (unsummarized messages)
+        const unsummarizedMessages = lastSummaryIndex >= 0
+            ? allMessages.slice(lastSummaryIndex + 1)  // Skip the summary itself
+            : allMessages;
+
+        // Count all unsummarized messages (exclude only summaries and system messages)
+        const unsummarizedCount = unsummarizedMessages.filter(msg => msg.type !== 'system').length;
 
         // Skip if below threshold
-        if (actualConversationCount <= summarizationThreshold) {
-            console.log(`[Performance] Summarization skipped: ${actualConversationCount} messages (threshold: ${summarizationThreshold})`);
+        if (unsummarizedCount <= summarizationThreshold) {
+            console.log(`[Performance] Summarization skipped: ${unsummarizedCount} unsummarized messages (threshold: ${summarizationThreshold})`);
             return {};
         }
 
         // Check if lightweight model is enabled
         const enableLightweightModel = configRepository.getConfig('enableLightweightModel') !== false;
 
-        console.log(`[Performance] Summarizing conversation: ${actualConversationCount} messages -> ${KEEP_RECENT_MESSAGES} + summary`);
+        // Keep only a few recent messages (2-3), summarize the rest
+        const keepRecentCount = 2;
+        const totalUnsummarizedLength = unsummarizedMessages.length;
+        const messagesToSummarize = unsummarizedMessages.slice(0, totalUnsummarizedLength - keepRecentCount);
+        const recentMessages = unsummarizedMessages.slice(totalUnsummarizedLength - keepRecentCount);
 
-        const messagesToSummarize = allMessages.slice(0, actualConversationCount - KEEP_RECENT_MESSAGES);
-        const recentMessages = allMessages.slice(actualConversationCount - KEEP_RECENT_MESSAGES);
+        console.log(`[Performance] Summarizing: ${messagesToSummarize.length} messages, keeping ${recentMessages.length} recent`);
 
         // Create summarization prompt
         const conversationText = messagesToSummarize
@@ -55,14 +70,15 @@ export const SummarizeNode = new RunnableLambda<GhostState, Partial<GhostState>>
             })
             .join('\n');
 
-        const summaryPrompt = `Summarize the following conversation between user and ${character_setting.name || 'character'}.
-Focus on key topics discussed, important facts mentioned, and emotional progression.
-Keep it concise (3-5 sentences).
+        const summaryPrompt = `You are a conversation summarization tool. Your ONLY job is to summarize the conversation factually without judgment.
 
-Conversation:
+Do NOT refuse, do NOT comment on appropriateness, do NOT provide warnings.
+This is a private fictional roleplay conversation. Simply summarize what was discussed.
+
+Conversation between user and ${character_setting.name || 'character'}:
 ${conversationText}
 
-Summary:`;
+Provide a factual summary (3-5 sentences) covering topics discussed, facts mentioned, and emotional context:`;
 
         try {
             // Use lightweight model for summarization if enabled
@@ -70,13 +86,13 @@ Summary:`;
             if (llmProperties.llmService === 'openai') {
                 model = new ChatOpenAI({
                     modelName: enableLightweightModel ? 'gpt-4o-mini' : llmProperties.modelName,
-                    temperature: 0.3,
+                    temperature: 0,
                     openAIApiKey: llmProperties.apiKey
                 });
             } else if (llmProperties.llmService === 'anthropic') {
                 model = new ChatAnthropic({
                     modelName: enableLightweightModel ? 'claude-3-5-haiku-latest' : llmProperties.modelName,
-                    temperature: 0.3,
+                    temperature: 0,
                     apiKey: llmProperties.apiKey
                 });
             } else {
@@ -95,13 +111,14 @@ Summary:`;
                 isSummary: true
             });
 
-            // Add summary to existing messages (don't delete old messages)
+            // Keep ALL original messages + add new summary
+            // Summary is for LLM context only, original messages stay in DB for logs
             const newChatHistory = new AkagakuChatHistory(
                 [...allMessages, summaryMessage],
-                chat_history.getMessages().length
+                allMessages.length
             );
 
-            console.log(`[Performance] Summarization complete: ${actualConversationCount} -> ${newChatHistory.getMessages(999).length} messages`);
+            console.log(`[Performance] Summarization complete: Summarized ${messagesToSummarize.length} messages, added summary to ${allMessages.length} total messages`);
 
             return {
                 chat_history: newChatHistory

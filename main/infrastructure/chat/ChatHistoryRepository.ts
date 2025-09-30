@@ -8,7 +8,6 @@ const chatHistoryStore = new Store({ name: 'chat_history' });
 
 export class AkagakuChatHistory {
   private messages: AkagakuBaseMessage[] = [];
-  private maximumSize: number = 100;
   private windowSize: number = 30;
 
   constructor(messages: AkagakuBaseMessage[], windowSize: number) {
@@ -18,17 +17,48 @@ export class AkagakuChatHistory {
 
   addMessage(message: AkagakuBaseMessage) {
     this.messages.push(message);
-    if (this.messages.length > this.maximumSize) {
-      this.messages.shift();
-    }
+    // No maximumSize limit - let archive rotation handle it
     return this;
   }
 
   getMessages(windowSize?: number): AkagakuBaseMessage[] {
-    if (windowSize) {
-      return this.messages.slice(-windowSize)
+    // Find last summary index
+    let lastSummaryIndex = -1;
+    for (let i = this.messages.length - 1; i >= 0; i--) {
+      if (this.messages[i].isSummary === true) {
+        lastSummaryIndex = i;
+        break;
+      }
     }
-    return this.messages.slice(-this.windowSize)
+
+    // LLM context: [last summary] + [messages after summary] (or all if no summary)
+    let contextMessages: AkagakuBaseMessage[];
+    if (lastSummaryIndex >= 0) {
+      // Include last summary + all messages after it
+      contextMessages = this.messages.slice(lastSummaryIndex);
+    } else {
+      // No summary yet, use recent messages only
+      contextMessages = this.messages;
+    }
+
+    // Apply window size - but ensure summary is always included if it exists
+    const targetSize = windowSize || this.windowSize;
+    if (lastSummaryIndex >= 0 && contextMessages.length > targetSize) {
+      // Always keep summary + most recent messages up to window size
+      const summary = contextMessages[0];
+      const recentMessages = contextMessages.slice(1).slice(-targetSize + 1);
+      return [summary, ...recentMessages];
+    }
+
+    if (windowSize) {
+      return contextMessages.slice(-windowSize)
+    }
+    return contextMessages.slice(-this.windowSize)
+  }
+
+  getAllMessagesInternal(): AkagakuBaseMessage[] {
+    // Return ALL messages without any filtering (for saving to disk)
+    return this.messages;
   }
 
   toChatLogs() {
@@ -61,28 +91,16 @@ class ElectronStoreChatHistoryRepository implements IChatHistoryRepository {
       }
     }).filter(msg => msg !== null) as AkagakuBaseMessage[];
 
-    // Find last summary message index
-    let lastSummaryIndex = -1;
-    for (let i = allMessages.length - 1; i >= 0; i--) {
-      if (allMessages[i].isSummary === true) {
-        lastSummaryIndex = i;
-        break;
-      }
-    }
+    // Load ALL messages into memory - don't filter by summary here
+    // Summary filtering happens in getMessages() for LLM context only
+    console.log(`[Performance] Loaded chat history: ${allMessages.length} total messages`);
 
-    // Use messages from last summary onwards (or all if no summary)
-    const contextMessages = lastSummaryIndex >= 0
-      ? allMessages.slice(lastSummaryIndex)
-      : allMessages;
-
-    console.log(`[Performance] Loaded chat history: ${allMessages.length} total, ${contextMessages.length} in context (summary at index ${lastSummaryIndex})`);
-
-    return new AkagakuChatHistory(contextMessages, windowSize);
+    return new AkagakuChatHistory(allMessages, windowSize);
   }
 
   async updateChatHistory(character_name: string, history: AkagakuChatHistory): Promise<void> {
-    // Save all messages (not just windowSize) to preserve full history
-    const allMessages = history.getMessages(999);
+    // Save ALL messages including those before summary
+    const allMessages = history.getAllMessagesInternal();
 
     // Archive rotation: keep only recent 1000 messages in current file
     const ARCHIVE_THRESHOLD = 1000;
@@ -134,6 +152,33 @@ class ElectronStoreChatHistoryRepository implements IChatHistoryRepository {
       console.error(`Failed to load archive ${archiveKey}:`, err);
       return [];
     }
+  }
+
+  getAllMessages(character_name: string): AkagakuBaseMessage[] {
+    // Load ALL messages but EXCLUDE summaries (for logs UI)
+    let rawMessages: any[] = [];
+    try {
+      const stored = chatHistoryStore.get(`${character_name}/chat_history.json`);
+      rawMessages = Array.isArray(stored) ? stored : [];
+    } catch (err) {
+      console.error(`Failed to load messages for ${character_name}:`, err);
+    }
+
+    return rawMessages
+      .filter(msg => !msg.isSummary)  // Exclude summary messages from logs
+      .map(msg => {
+        const baseMsg = { ...msg, createdAt: parseDatetime(msg.createdAt) };
+        switch (msg.type) {
+          case 'system':
+            return new AkagakuSystemMessage(baseMsg);
+          case 'user':
+            return new AkagakuUserMessage(baseMsg);
+          case 'character':
+            return new AkagakuCharacterMessage(baseMsg);
+          default:
+            return null;
+        }
+      }).filter(msg => msg !== null) as AkagakuBaseMessage[];
   }
 }
 

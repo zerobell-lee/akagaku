@@ -35,12 +35,28 @@ export const ToolNode = new RunnableLambda<GhostState, Partial<GhostState>>({
 
             console.log('tool result', result)
 
-            toolCallHistory.push(result)
-            const toolCalls = (result as AIMessage).tool_calls
-            console.log('tool result', result)
+            // AgentExecutor returns { output, intermediateSteps }
+            const intermediateSteps = result.intermediateSteps || [];
+            const output = result.output;
+
+            console.log('intermediateSteps', intermediateSteps)
+            console.log('output', output)
+
+            // If tool was executed successfully
+            if (intermediateSteps.length > 0) {
+                const toolResults = intermediateSteps.map((step: any) => step.observation).join('\n');
+                return {
+                    toolCallCompleted: true,
+                    toolCallHistory: [...toolCallHistory, ...intermediateSteps],
+                    toolCallFinalAnswer: toolResults
+                };
+            }
+
+            // No tools executed - check if it's because no tools were needed
+            const toolCalls = (result as AIMessage)?.tool_calls || [];
 
             if (toolCalls.length === 0) {
-                let finalAnswer = result.content
+                let finalAnswer = result.content || ''
 
                 // Handle various response formats
                 if (typeof finalAnswer === 'string') {
@@ -69,8 +85,17 @@ export const ToolNode = new RunnableLambda<GhostState, Partial<GhostState>>({
                     toolCallHistory.push(toolResult)
                 }
             }
-    
-            return { toolCallHistory };
+
+            // Format tool results for final answer
+            const toolResultSummary = toolCallHistory
+                .map(result => typeof result === 'string' ? result : JSON.stringify(result))
+                .join('\n');
+
+            return {
+                toolCallCompleted: true,
+                toolCallHistory,
+                toolCallFinalAnswer: toolResultSummary
+            };
         } catch (e) {
             console.log('tool node error', e)
             return { toolCallCompleted: true, toolCallHistory: null, toolCallFinalAnswer: '' };

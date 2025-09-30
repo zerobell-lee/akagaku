@@ -405,14 +405,26 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
       }
     }
     else if (arg === 'LOG_OPENED') {
-      const chatHistory = getChatHistory(characterName)
+      // Load ALL messages excluding summaries (summaries are for LLM only)
+      const allMessages = chatHistoryRepository.getAllMessages(characterName)
       const archiveList = chatHistoryRepository.getArchiveList(characterName)
+
+      // Convert to chat logs (exclude system messages)
+      const chatLogs = allMessages
+        .filter(msg => msg.type !== 'system')
+        .map(msg => msg.toChatLog())
+
       logsWindow?.webContents.send('receive_chatlogs', {
-        current: chatHistory.toChatLogs(),
+        current: chatLogs,
         archives: archiveList.map(key => ({
           key,
           timestamp: key.split('_').pop()?.replace('.json', '') || ''
-        }))
+        })),
+        stats: {
+          total: allMessages.length,
+          conversation: allMessages.length,
+          summary: 0
+        }
       })
     }
     else if (arg === 'LOAD_ARCHIVE') {

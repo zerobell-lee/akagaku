@@ -12,22 +12,31 @@ interface Archive {
     timestamp: string;
 }
 
+interface MessageStats {
+    total: number;
+    conversation: number;
+    summary: number;
+}
+
 export default function Logs() {
     const [logs, setLogs] = useState<ChatLog[]>([])
     const [archives, setArchives] = useState<Archive[]>([])
     const [currentView, setCurrentView] = useState<string>('current')
+    const [stats, setStats] = useState<MessageStats | null>(null)
 
     useEffect(() => {
-        window.ipc.on('receive_chatlogs', (data: ChatLog[] | { current: ChatLog[], archives: Archive[] }) => {
+        window.ipc.on('receive_chatlogs', (data: ChatLog[] | { current: ChatLog[], archives: Archive[], stats?: MessageStats }) => {
             // Handle both old format (array) and new format (object with current/archives)
             if (Array.isArray(data)) {
                 // Old format: just an array of logs
                 setLogs(data)
                 setArchives([])
+                setStats(null)
             } else {
-                // New format: object with current and archives
+                // New format: object with current, archives, and stats
                 setLogs(data.current || [])
                 setArchives(data.archives || [])
+                setStats(data.stats || null)
             }
             console.log('Received chatlogs:', data)
         })
@@ -72,7 +81,26 @@ export default function Logs() {
     return (
         <div className="flex flex-col gap-2 bg-gray-900 text-white h-screen w-screen" >
             <div className="flex flex-row items-center justify-between px-4 py-2 border-b border-gray-700">
-                <h1 className="text-2xl font-bold">Chat Logs</h1>
+                <div className="flex items-center gap-3">
+                    <h1 className="text-2xl font-bold">Chat Logs</h1>
+                    {currentView === 'current' && stats ? (
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-400 bg-gray-800 px-2 py-1 rounded">
+                                Total: {stats.total}
+                            </span>
+                            <span className="text-sm text-green-400 bg-gray-800 px-2 py-1 rounded">
+                                Conversation: {stats.conversation}
+                            </span>
+                            <span className="text-sm text-blue-400 bg-gray-800 px-2 py-1 rounded">
+                                Summary: {stats.summary}
+                            </span>
+                        </div>
+                    ) : (
+                        <span className="text-sm text-gray-400 bg-gray-800 px-2 py-1 rounded">
+                            {logs.length} messages
+                        </span>
+                    )}
+                </div>
 
                 {/* Archive selector */}
                 <div className="flex items-center gap-2">

@@ -44,6 +44,7 @@ export const createAgentForTool = async (llmProperties: llmProperties, toolPromp
         newLlmProperties = {
             ...llmProperties,
             modelName: 'claude-3-5-haiku-latest',
+            temperature: 0,
         }
     }
 
@@ -51,6 +52,7 @@ export const createAgentForTool = async (llmProperties: llmProperties, toolPromp
         newLlmProperties = {
             ...llmProperties,
             modelName: 'gpt-4o-mini',
+            temperature: 0,
         }
     }
 
@@ -68,12 +70,11 @@ export const createAgentForTool = async (llmProperties: llmProperties, toolPromp
         return null
     }
 
-    return prompt.pipe(model.bindTools(core_tools).withConfig({ runName: "ghost-tool" }))
-
     const agent = createToolCallingAgent({ llm: model, tools: core_tools, prompt: prompt });
     const executor = new AgentExecutor({
         agent: agent,
         tools: core_tools,
+        returnIntermediateSteps: true,
     }).withConfig({
         runName: "ghost-tool"
     });
