@@ -26,7 +26,7 @@ if (isProd) {
 const openaiApiKey = configRepository.getConfig('openaiApiKey') || "";
 const anthropicApiKey = configRepository.getConfig('anthropicApiKey') || "";
 const llmService = configRepository.getConfig('llmService') || "openai";
-const selectedModel = configRepository.getConfig('selectedModel') || "gpt-4o-mini";
+const selectedModel = configRepository.getConfig('selectedModel') || "gpt-5";
 const temperature = configRepository.getConfig('temperature') || 1;
 const characterName = configRepository.getConfig('characterName') as string || "minkee";
 

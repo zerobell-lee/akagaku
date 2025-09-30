@@ -7,10 +7,10 @@ import { ConfigResponse, LLMService } from "@shared/types";
 export default function Config() {
     const serviceModelMap = {
         openai: {
-            models: ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'],
+            models: ['gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'gpt-4o', 'gpt-4o-mini'],
         },
         anthropic: {
-            models: ['claude-3-5-sonnet-20240620', 'claude-3-haiku-20240307', 'claude-3-7-sonnet-20250219'],
+            models: ['claude-sonnet-4-5-20250929', 'claude-sonnet-4-20250514', 'claude-opus-4-20250514'],
         },
     }
     const [isLoading, setIsLoading] = useState(true);
