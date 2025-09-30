@@ -42,6 +42,7 @@ export const loadSystemPrompt = (llmService: string) => {
 }
 
 export const loadToolPrompt = () => {
-    return `Call tools if needed. If no tools needed, return EXACTLY: "No tool calls"
-DO NOT explain. DO NOT add reasoning. ONLY "No tool calls" with nothing else.`
+    return `Analyze if user needs tools (weather, time, geolocation, etc).
+If YES: Call appropriate tools.
+If NO: Output nothing. Do NOT explain.`
 }
