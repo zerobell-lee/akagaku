@@ -42,6 +42,21 @@ const speechBubbleWidth = configRepository.getConfig('speechBubbleWidth') as num
 console.log('[DEBUG] displayScale loaded:', displayScale);
 console.log('[DEBUG] speechBubbleWidth loaded:', speechBubbleWidth);
 
+// LangSmith configuration
+const enableLangsmithTracing = configRepository.getConfig('enableLangsmithTracing') as boolean || false;
+const langsmithApiKey = configRepository.getConfig('langsmithApiKey') as string || "";
+const langsmithProjectName = configRepository.getConfig('langsmithProjectName') as string || "akagaku";
+
+if (enableLangsmithTracing && langsmithApiKey) {
+  process.env.LANGCHAIN_TRACING_V2 = "true";
+  process.env.LANGCHAIN_API_KEY = langsmithApiKey;
+  process.env.LANGCHAIN_PROJECT = langsmithProjectName;
+  console.log('[LangSmith] Tracing enabled for project:', langsmithProjectName);
+} else {
+  process.env.LANGCHAIN_TRACING_V2 = "false";
+  console.log('[LangSmith] Tracing disabled');
+}
+
 // Determine API key based on provider
 const getApiKeyForProvider = (provider: string): string => {
   switch (provider) {
@@ -324,7 +339,10 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
         speechBubbleWidth: configRepository.getConfig('speechBubbleWidth') as number || 500,
         enableLightweightModel: configRepository.getConfig('enableLightweightModel') !== false,
         enableAutoSummarization: configRepository.getConfig('enableAutoSummarization') !== false,
-        summarizationThreshold: configRepository.getConfig('summarizationThreshold') as number || 40
+        summarizationThreshold: configRepository.getConfig('summarizationThreshold') as number || 40,
+        langsmithApiKey: configRepository.getConfig('langsmithApiKey') as string || "",
+        enableLangsmithTracing: configRepository.getConfig('enableLangsmithTracing') as boolean || false,
+        langsmithProjectName: configRepository.getConfig('langsmithProjectName') as string || "akagaku"
       });
     }
     else if (arg === 'OPEN_CONFIG') {
@@ -427,7 +445,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     }
   })
 
-  ipcMain.on('save_config', (event, { openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature, openweathermapApiKey, coinmarketcapApiKey, chatHistoryLimit, displayScale, speechBubbleWidth, enableLightweightModel, enableAutoSummarization, summarizationThreshold }) => {
+  ipcMain.on('save_config', (event, { openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature, openweathermapApiKey, coinmarketcapApiKey, chatHistoryLimit, displayScale, speechBubbleWidth, enableLightweightModel, enableAutoSummarization, summarizationThreshold, langsmithApiKey, enableLangsmithTracing, langsmithProjectName }) => {
     console.log(openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature, openweathermapApiKey)
     const previousOpenaiApiKey = configRepository.getConfig('openaiApiKey') as string || "";
     const previousAnthropicApiKey = configRepository.getConfig('anthropicApiKey') as string || "";
@@ -480,6 +498,22 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     configRepository.setConfig('enableLightweightModel', enableLightweightModel);
     configRepository.setConfig('enableAutoSummarization', enableAutoSummarization);
     configRepository.setConfig('summarizationThreshold', summarizationThreshold);
+    // Developer settings
+    configRepository.setConfig('langsmithApiKey', langsmithApiKey || '');
+    configRepository.setConfig('enableLangsmithTracing', enableLangsmithTracing || false);
+    configRepository.setConfig('langsmithProjectName', langsmithProjectName || 'akagaku');
+
+    // Update LangSmith environment variables
+    if (enableLangsmithTracing && langsmithApiKey) {
+      process.env.LANGCHAIN_TRACING_V2 = "true";
+      process.env.LANGCHAIN_API_KEY = langsmithApiKey;
+      process.env.LANGCHAIN_PROJECT = langsmithProjectName || 'akagaku';
+      console.log('[LangSmith] Tracing enabled for project:', langsmithProjectName);
+    } else {
+      process.env.LANGCHAIN_TRACING_V2 = "false";
+      console.log('[LangSmith] Tracing disabled');
+    }
+
     if (updateRequired) {
       ghost.updateExecuter({ openaiApiKey: openaiApiKey, anthropicApiKey: anthropicApiKey, llmService: llmService as 'openai' | 'anthropic', modelName: selectedModel, temperature: temperature });
     }

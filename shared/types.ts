@@ -87,6 +87,10 @@ export interface ConfigResponse {
     enableLightweightModel: boolean;
     enableAutoSummarization: boolean;
     summarizationThreshold: number;
+    // Developer settings
+    langsmithApiKey?: string;
+    enableLangsmithTracing?: boolean;
+    langsmithProjectName?: string;
 }
 
 export interface UserInput {

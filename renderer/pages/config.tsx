@@ -15,7 +15,7 @@ const RECOMMENDED_MODELS: RecommendedModelsType = {
     'custom': []
 };
 
-type TabType = 'llm' | 'chat' | 'tools' | 'display';
+type TabType = 'llm' | 'chat' | 'tools' | 'display' | 'developers';
 
 export default function Config() {
     const [activeTab, setActiveTab] = useState<TabType>('llm');
@@ -45,6 +45,11 @@ export default function Config() {
     const [enableAutoSummarization, setEnableAutoSummarization] = useState(true);
     const [summarizationThreshold, setSummarizationThreshold] = useState(40);
 
+    // Developer settings
+    const [langsmithApiKey, setLangsmithApiKey] = useState('');
+    const [enableLangsmithTracing, setEnableLangsmithTracing] = useState(false);
+    const [langsmithProjectName, setLangsmithProjectName] = useState('akagaku');
+
     // Legacy support - map old llmService to new provider
     const [llmService, setLlmService] = useState<'openai' | 'anthropic'>('openai');
 
@@ -72,6 +77,10 @@ export default function Config() {
             enableLightweightModel,
             enableAutoSummarization,
             summarizationThreshold,
+            // Developer settings
+            langsmithApiKey,
+            enableLangsmithTracing,
+            langsmithProjectName,
         });
         setToastMessage('Config saved!');
     }
@@ -105,6 +114,11 @@ export default function Config() {
         setEnableLightweightModel(response.enableLightweightModel !== false); // default true
         setEnableAutoSummarization(response.enableAutoSummarization !== false); // default true
         setSummarizationThreshold(response.summarizationThreshold || 40); // default 40
+
+        // Developer settings
+        setLangsmithApiKey(response.langsmithApiKey || '');
+        setEnableLangsmithTracing(response.enableLangsmithTracing || false);
+        setLangsmithProjectName(response.langsmithProjectName || 'akagaku');
 
         setIsLoading(false);
     }
@@ -462,6 +476,75 @@ export default function Config() {
         </div>
     );
 
+    const renderDevelopersTab = () => (
+        <div className="space-y-4">
+            <div className="bg-yellow-900/30 border border-yellow-600/50 rounded-lg p-4 mb-4">
+                <p className="text-yellow-200 text-sm">
+                    ⚠️ Developer settings for debugging and performance monitoring. LangSmith tracing helps identify slow response times.
+                </p>
+            </div>
+
+            {/* LangSmith Tracing */}
+            <label className="flex items-center gap-3 py-2">
+                <input
+                    type="checkbox"
+                    checked={enableLangsmithTracing}
+                    onChange={(e) => setEnableLangsmithTracing(e.target.checked)}
+                    className="w-5 h-5"
+                />
+                <div className="flex flex-col flex-1">
+                    <span className="text-lg">Enable LangSmith Tracing</span>
+                    <span className="text-sm text-gray-400">
+                        Track LLM calls, latency, and token usage. Requires LangSmith API key.
+                    </span>
+                </div>
+            </label>
+
+            {/* LangSmith API Key */}
+            {enableLangsmithTracing && (
+                <>
+                    <label className="flex flex-col gap-2">
+                        <span className="text-2xl">LangSmith API Key</span>
+                        <SecretInput
+                            value={langsmithApiKey}
+                            onChange={(e) => setLangsmithApiKey(e.target.value)}
+                            placeholder="ls_..."
+                        />
+                        <span className="text-sm text-gray-400">
+                            Get your API key from <a href="https://smith.langchain.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">smith.langchain.com</a>
+                        </span>
+                    </label>
+
+                    {/* LangSmith Project Name */}
+                    <label className="flex flex-col gap-2">
+                        <span className="text-2xl">Project Name</span>
+                        <input
+                            type="text"
+                            value={langsmithProjectName}
+                            onChange={(e) => setLangsmithProjectName(e.target.value)}
+                            className="bg-gray-700 text-white px-4 py-2 rounded-md"
+                            placeholder="akagaku"
+                        />
+                        <span className="text-sm text-gray-400">
+                            LangSmith project for organizing traces. Default: "akagaku"
+                        </span>
+                    </label>
+                </>
+            )}
+
+            {/* Performance Monitoring Info */}
+            <div className="bg-gray-700/50 rounded-lg p-4 mt-6">
+                <h3 className="text-lg font-semibold mb-2">Performance Debugging Tips</h3>
+                <ul className="text-sm text-gray-300 space-y-2 list-disc list-inside">
+                    <li>Enable LangSmith to see detailed timing for each LLM call and tool execution</li>
+                    <li>Check console logs for [Performance] markers showing execution times</li>
+                    <li>Long response times often caused by: tool execution, summarization, or slow LLM API</li>
+                    <li>Adjust summarization threshold in Chat tab if summarization is slow</li>
+                </ul>
+            </div>
+        </div>
+    );
+
     return (
         <div className="config-page bg-gray-800 text-white h-screen w-screen flex">
             {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage('')} />}
@@ -476,6 +559,7 @@ export default function Config() {
                     <TabButton tab="chat" label="Chat" />
                     <TabButton tab="tools" label="Tools" />
                     <TabButton tab="display" label="Display" />
+                    <TabButton tab="developers" label="Developers" />
                 </div>
             </div>
 
@@ -486,6 +570,7 @@ export default function Config() {
                     {activeTab === 'chat' && renderChatTab()}
                     {activeTab === 'tools' && renderToolsTab()}
                     {activeTab === 'display' && renderDisplayTab()}
+                    {activeTab === 'developers' && renderDevelopersTab()}
                 </div>
 
                 {/* Action Buttons */}
