@@ -1,6 +1,7 @@
 import { logger } from '../config/logger';
 import Store from 'electron-store'
 import { IUserRepository } from 'main/domain/repositories/IUserRepository';
+import { app } from 'electron';
 
 const userStore = new Store({ name: 'user' });
 
@@ -11,7 +12,7 @@ class ElectronStoreUserRepository implements IUserRepository {
             occupation: '(unknown)',
             birthDate: '(unknown)',
             location: '(unknown)',
-            locale: Intl.DateTimeFormat().resolvedOptions().locale,
+            locale: app.getLocale(),
         }
         try {
             return userStore.get('user') || defaultUser;

@@ -82,7 +82,7 @@ export default function Character({ character_name, character_width, character_h
                     ))}
                 </svg>
             }
-            <img src={`${imgSrc}`} style={{ minWidth: `${character_width}px`, minHeight: `${character_height}px` }} />
+            <img src={`${imgSrc}`} style={{ width: '100%', height: '100%' }} />
         </div>
     )
 }

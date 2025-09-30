@@ -3,13 +3,16 @@ import { app, BrowserWindow, dialog, ipcMain, protocol, screen, Tray } from 'ele
 import serve from 'electron-serve'
 import { createWindow } from './helpers'
 import { GhostService } from './infrastructure/ghost/GhostService'
-import { configRepository } from './infrastructure/config/ConfigRepository'
+import { configRepository, initConfigRepository } from './infrastructure/config/ConfigRepository'
 import { CharacterSettingLoader } from './infrastructure/character/CharacterRepository'
 import fs from 'fs'
 import { CharacterAppearance, CharacterProperties, UserInput, GhostResponse } from '@shared/types'
 import dotenv from 'dotenv'
 import { getChatHistory } from './infrastructure/chat/ChatHistoryRepository'
 
+
+// app.commandLine.appendSwitch('high-dpi-support', '1');
+// app.commandLine.appendSwitch('force-device-scale-factor', '1');
 
 const isProd = process.env.NODE_ENV === 'production'
 
@@ -23,6 +26,9 @@ if (isProd) {
   app.setPath('userData', `${app.getPath('userData')} (development)`)
 }
 
+// Initialize config repository after setting userData path
+initConfigRepository();
+
 const openaiApiKey = configRepository.getConfig('openaiApiKey') || "";
 const anthropicApiKey = configRepository.getConfig('anthropicApiKey') || "";
 const customApiKey = configRepository.getConfig('customApiKey') || "";
@@ -31,6 +37,10 @@ const llmProvider = configRepository.getConfig('llmProvider') || configRepositor
 const selectedModel = configRepository.getConfig('selectedModel') || "gpt-5";
 const temperature = configRepository.getConfig('temperature') || 1;
 const characterName = configRepository.getConfig('characterName') as string || "minkee";
+const displayScale = configRepository.getConfig('displayScale') as number || 0.5;
+const speechBubbleWidth = configRepository.getConfig('speechBubbleWidth') as number || 500;
+console.log('[DEBUG] displayScale loaded:', displayScale);
+console.log('[DEBUG] speechBubbleWidth loaded:', speechBubbleWidth);
 
 // Determine API key based on provider
 const getApiKeyForProvider = (provider: string): string => {
@@ -67,11 +77,13 @@ console.log("ghost", ghost);
 
 // Force device scale factor to 1.0 to prevent scaling issues on high-DPI displays
 // This ensures consistent rendering across all platforms (Windows, macOS Retina, Linux)
-app.commandLine.appendSwitch('force-device-scale-factor', '1');
+
 
 const createGhostWindow = (characterAppearance: CharacterAppearance) => {
   const screenWidth = screen.getPrimaryDisplay().workAreaSize.width
   const screenHeight = screen.getPrimaryDisplay().workAreaSize.height
+  const scaledWidth = Math.floor(characterAppearance.character_width * displayScale);
+  const scaledHeight = Math.floor(characterAppearance.character_height * displayScale);
 
   const ghostWindow = createWindow('main', {
     width: characterAppearance.character_width,
@@ -84,14 +96,12 @@ const createGhostWindow = (characterAppearance: CharacterAppearance) => {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
     },
-  })
+  }, displayScale, true)
 
-  ghostWindow.setBounds({
-    x: Math.floor(screenWidth * 0.8) - characterAppearance.character_width,
-    y: screenHeight - characterAppearance.character_height,
-    width: characterAppearance.character_width,
-    height: characterAppearance.character_height,
-  })
+  ghostWindow.setPosition(
+    Math.floor(screenWidth * 0.8) - scaledWidth,
+    screenHeight - scaledHeight
+  )
 
   return ghostWindow
 };
@@ -182,8 +192,12 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     if (!speechBubbleWindow) {
       const screenWidth = screen.getPrimaryDisplay().workAreaSize.width
       const screenHeight = screen.getPrimaryDisplay().workAreaSize.height
+      const scaledBubbleWidth = Math.floor(speechBubbleWidth * displayScale);
+      const scaledBubbleHeight = Math.floor(characterAppearance.character_height * displayScale);
+      const scaledCharWidth = Math.floor(characterAppearance.character_width * displayScale);
+
       speechBubbleWindow = createWindow('speech-bubble', {
-        width: 500,
+        width: speechBubbleWidth,
         height: characterAppearance.character_height,
         transparent: true,
         frame: false,
@@ -194,23 +208,19 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
         webPreferences: {
           preload: path.join(__dirname, 'preload.js'),
         },
-      })
+      }, displayScale, true)
       loadUrlOnBrowserWindow(speechBubbleWindow, 'speechBubblePage')
 
       if (mainWindow.getBounds().x < screenWidth / 2) {
-        speechBubbleWindow.setBounds({
-          width: 500,
-          height: characterAppearance.character_height,
-          x: mainWindow.getBounds().x + 550,
-          y: mainWindow.getBounds().y,
-        })
+        speechBubbleWindow.setPosition(
+          mainWindow.getBounds().x + scaledCharWidth + 50,
+          mainWindow.getBounds().y
+        )
       } else {
-        speechBubbleWindow.setBounds({
-          width: 500,
-          height: characterAppearance.character_height,
-          x: mainWindow.getBounds().x - 450,
-          y: mainWindow.getBounds().y,
-        })
+        speechBubbleWindow.setPosition(
+          mainWindow.getBounds().x - scaledBubbleWidth - 50,
+          mainWindow.getBounds().y
+        )
       }
       speechBubbleWindow.once('ready-to-show', () => {
         speechBubbleWindow.showInactive()
@@ -274,7 +284,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
         webPreferences: {
           preload: path.join(__dirname, 'preload.js'),
         },
-      })
+      }, displayScale, true)
       loadUrlOnBrowserWindow(userChatInputWindow, 'chatDialog')
       setTimeout(() => {
         userChatInputWindow.focus()
@@ -309,7 +319,9 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
         temperature: configRepository.getConfig('temperature') as number || 1,
         openweathermapApiKey: configRepository.getConfig('openweathermapApiKey') as string || "",
         coinmarketcapApiKey: configRepository.getConfig('coinmarketcapApiKey') as string || "",
-        chatHistoryLimit: configRepository.getConfig('chatHistoryLimit') as number || 100
+        chatHistoryLimit: configRepository.getConfig('chatHistoryLimit') as number || 100,
+        displayScale: configRepository.getConfig('displayScale') as number || 0.5,
+        speechBubbleWidth: configRepository.getConfig('speechBubbleWidth') as number || 500
       });
     }
     else if (arg === 'OPEN_CONFIG') {
@@ -322,7 +334,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
           webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
           },
-        })
+        }, displayScale, true)
         configWindow.setMenuBarVisibility(false)
         loadUrlOnBrowserWindow(configWindow, 'config')
         configWindow.on('close', () => {
@@ -361,7 +373,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
           webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
           },
-        })
+        }, displayScale, true)
         loadUrlOnBrowserWindow(logsWindow, 'logs')
         logsWindow.setMenuBarVisibility(false)
         logsWindow.on('close', () => {
@@ -392,15 +404,17 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     const { newX, newY } = { newX: startWindow.x + dx, newY: startWindow.y }
     mainWindow.setBounds({ x: newX, y: newY, width: mainWindow.getBounds().width, height: mainWindow.getBounds().height }, false)
     if (speechBubbleWindow) {
+      const scaledCharWidth = Math.floor(characterAppearance.character_width * displayScale);
+      const scaledBubbleWidth = Math.floor(speechBubbleWidth * displayScale);
       if (newX < screen.getPrimaryDisplay().workAreaSize.width / 2) {
-        speechBubbleWindow.setPosition(newX + 550, newY, false)
+        speechBubbleWindow.setPosition(newX + scaledCharWidth + 50, newY, false)
       } else {
-        speechBubbleWindow.setPosition(newX - 450, newY, false)
+        speechBubbleWindow.setPosition(newX - scaledBubbleWidth - 50, newY, false)
       }
     }
   })
 
-  ipcMain.on('save_config', (event, { openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature, openweathermapApiKey, coinmarketcapApiKey, chatHistoryLimit }) => {
+  ipcMain.on('save_config', (event, { openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature, openweathermapApiKey, coinmarketcapApiKey, chatHistoryLimit, displayScale, speechBubbleWidth }) => {
     console.log(openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature, openweathermapApiKey)
     const previousOpenaiApiKey = configRepository.getConfig('openaiApiKey') as string || "";
     const previousAnthropicApiKey = configRepository.getConfig('anthropicApiKey') as string || "";
@@ -410,6 +424,8 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     const previousOpenweathermapApiKey = configRepository.getConfig('openweathermapApiKey') as string || "";
     const previousCoinmarketcapApiKey = configRepository.getConfig('coinmarketcapApiKey') as string || "";
     const previousChatHistoryLimit = configRepository.getConfig('chatHistoryLimit') as number || 100;
+    const previousDisplayScale = configRepository.getConfig('displayScale') as number || 0.5;
+    const previousSpeechBubbleWidth = configRepository.getConfig('speechBubbleWidth') as number || 500;
 
     let updateRequired = false;
     if (previousOpenaiApiKey !== openaiApiKey) {
@@ -437,6 +453,16 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     }
     if (previousCoinmarketcapApiKey !== coinmarketcapApiKey) {
       configRepository.setConfig('coinmarketcapApiKey', coinmarketcapApiKey);
+    }
+    if (previousDisplayScale !== displayScale) {
+      configRepository.setConfig('displayScale', displayScale);
+      app.relaunch();
+      app.quit();
+    }
+    if (previousSpeechBubbleWidth !== speechBubbleWidth) {
+      configRepository.setConfig('speechBubbleWidth', speechBubbleWidth);
+      app.relaunch();
+      app.quit();
     }
     if (updateRequired) {
       ghost.updateExecuter({ openaiApiKey: openaiApiKey, anthropicApiKey: anthropicApiKey, llmService: llmService as 'openai' | 'anthropic', modelName: selectedModel, temperature: temperature });

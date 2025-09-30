@@ -8,27 +8,40 @@ import Store from 'electron-store'
 
 export const createWindow = (
   windowName: string,
-  options: BrowserWindowConstructorOptions
+  options: BrowserWindowConstructorOptions,
+  zoomFactor: number = 1.0,
+  applyScaleToSize: boolean = true
 ): BrowserWindow => {
+  const scaledOptions = applyScaleToSize ? {
+    ...options,
+    width: options.width ? Math.floor(options.width * zoomFactor) : undefined,
+    height: options.height ? Math.floor(options.height * zoomFactor) : undefined,
+  } : options;
+
   const key = 'window-state'
   const name = `window-state-${windowName}`
   const store = new Store<Rectangle>({ name })
   const defaultSize = {
-    width: options.width,
-    height: options.height,
+    width: scaledOptions.width,
+    height: scaledOptions.height,
   }
   let state = {}
+  console.log(`window name ${windowName} zoomFactor ${zoomFactor}`)
 
-  const restore = () => store.get(key, defaultSize)
+  const restore = () => {
+    const saved = store.get(key, defaultSize) as any
+    // Only restore position, not size
+    return {
+      x: saved.x,
+      y: saved.y,
+    }
+  }
 
   const getCurrentPosition = () => {
     const position = win.getPosition()
-    const size = win.getSize()
     return {
       x: position[0],
       y: position[1],
-      width: size[0],
-      height: size[1],
     }
   }
 
@@ -36,17 +49,17 @@ export const createWindow = (
     return (
       windowState.x >= bounds.x &&
       windowState.y >= bounds.y &&
-      windowState.x + windowState.width <= bounds.x + bounds.width &&
-      windowState.y + windowState.height <= bounds.y + bounds.height
+      windowState.x + (scaledOptions.width || 800) <= bounds.x + bounds.width &&
+      windowState.y + (scaledOptions.height || 600) <= bounds.y + bounds.height
     )
   }
 
   const resetToDefaults = () => {
     const bounds = screen.getPrimaryDisplay().bounds
-    return Object.assign({}, defaultSize, {
-      x: (bounds.width - defaultSize.width) / 2,
-      y: (bounds.height - defaultSize.height) / 2,
-    })
+    return {
+      x: (bounds.width - (scaledOptions.width || 800)) / 2,
+      y: (bounds.height - (scaledOptions.height || 600)) / 2,
+    }
   }
 
   const ensureVisibleOnSomeDisplay = (windowState) => {
@@ -72,12 +85,16 @@ export const createWindow = (
 
   const win = new BrowserWindow({
     ...state,
-    ...options,
+    ...scaledOptions,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      ...options.webPreferences,
+      ...scaledOptions.webPreferences,
     },
+  })
+
+  win.webContents.on('did-finish-load', () => {
+    win.webContents.setZoomFactor(zoomFactor)
   })
 
   win.on('close', saveState)

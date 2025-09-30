@@ -36,6 +36,8 @@ export default function Config() {
     const [openweathermapApiKey, setOpenweathermapApiKey] = useState('');
     const [coinmarketcapApiKey, setCoinmarketcapApiKey] = useState('');
     const [chatHistoryLimit, setChatHistoryLimit] = useState(100);
+    const [displayScale, setDisplayScale] = useState(0.5);
+    const [speechBubbleWidth, setSpeechBubbleWidth] = useState(500);
 
     // Legacy support - map old llmService to new provider
     const [llmService, setLlmService] = useState<'openai' | 'anthropic'>('openai');
@@ -57,6 +59,9 @@ export default function Config() {
             llmProvider,
             customBaseURL: showAdvanced ? customBaseURL : undefined,
             customApiKey: customApiKey || undefined,
+            // Display settings
+            displayScale,
+            speechBubbleWidth,
         });
         setToastMessage('Config saved!');
     }
@@ -84,6 +89,9 @@ export default function Config() {
         if (response.customApiKey) {
             setCustomApiKey(response.customApiKey);
         }
+
+        setDisplayScale(response.displayScale || 0.5);
+        setSpeechBubbleWidth(response.speechBubbleWidth || 500);
 
         setIsLoading(false);
     }
@@ -130,7 +138,7 @@ export default function Config() {
         return <LoadingSpinner />
     }
 
-    const recommendedModels = RECOMMENDED_MODELS[llmProvider];
+    const recommendedModels = RECOMMENDED_MODELS[llmProvider] || [];
     const effectiveModelName = useCustomModel ? customModelInput : modelName;
 
     return (
@@ -300,6 +308,41 @@ export default function Config() {
                     className="bg-gray-700 text-white px-4 py-2 rounded-md"
                     style={{width: '100px'}}
                 />
+            </label>
+
+            {/* Display Scale */}
+            <label className="flex flex-col gap-2 py-4">
+                <div className="flex flex-row gap-2">
+                    <span className="text-2xl">Display Scale</span>
+                    <span className="text-2xl">{(displayScale * 100).toFixed(0)}%</span>
+                </div>
+                <input
+                    type="range"
+                    value={displayScale}
+                    min="0.25"
+                    max="2.0"
+                    step="0.05"
+                    onChange={(e) => setDisplayScale(Number(e.target.value))}
+                    className="bg-gray-700 px-4 py-2 rounded-md"
+                />
+                <span className="text-sm text-gray-400">
+                    Adjust app zoom level. macOS Retina: 50%, Windows/Linux: 100%. Requires restart.
+                </span>
+            </label>
+
+            {/* Speech Bubble Width */}
+            <label className="flex flex-col gap-2 py-2">
+                <span className="text-2xl">Speech Bubble Width</span>
+                <input
+                    type="number"
+                    value={speechBubbleWidth}
+                    onChange={(e) => setSpeechBubbleWidth(Number(e.target.value))}
+                    className="bg-gray-700 text-white px-4 py-2 rounded-md"
+                    style={{width: '150px'}}
+                />
+                <span className="text-sm text-gray-400">
+                    Width in pixels. Default: 500
+                </span>
             </label>
 
             {/* Action Buttons */}

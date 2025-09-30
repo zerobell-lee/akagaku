@@ -17,4 +17,18 @@ export class ConfigRepository implements IConfigRepository {
   }
 }
 
-export const configRepository = new ConfigRepository()
+let _configRepository: ConfigRepository | null = null;
+
+export const getConfigRepository = () => {
+  if (!_configRepository) {
+    _configRepository = new ConfigRepository();
+  }
+  return _configRepository;
+}
+
+// Don't create immediately - let background.ts create after setting userData path
+export let configRepository: ConfigRepository;
+
+export const initConfigRepository = () => {
+  configRepository = getConfigRepository();
+}

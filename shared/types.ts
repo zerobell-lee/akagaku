@@ -80,6 +80,9 @@ export interface ConfigResponse {
     llmProvider?: LLMProvider;
     customBaseURL?: string;
     customApiKey?: string;
+    // Display scaling configuration
+    displayScale: number;
+    speechBubbleWidth: number;
 }
 
 export interface UserInput {

@@ -14,18 +14,18 @@ export interface CharacterSetting {
     touchable_area: TouchableArea | null;
 }
 
-const dataDirectory = path.join(app.getAppPath(), 'data');
+const getDataDirectory = () => path.join(app.getAppPath(), 'data');
 
 class YamlCharacterRepository implements ICharacterRepository {
     getCharacterSetting(character_id: string): CharacterSetting {
-        const character_setting = yaml.load(fs.readFileSync(path.join(dataDirectory, `character/${character_id}/character_description.yaml`), 'utf8')) as CharacterSetting;
+        const character_setting = yaml.load(fs.readFileSync(path.join(getDataDirectory(), `character/${character_id}/character_description.yaml`), 'utf8')) as CharacterSetting;
         return { ...character_setting, character_id };
     }
 
     calcAttitude(character_name: string, affection: number): string {
         let affection_attitude_map;
         try {
-            affection_attitude_map = yaml.load(fs.readFileSync(path.join(dataDirectory, `character/${character_name}/affection_attitude_map.yaml`), 'utf8')) as AffectionAttitudeMap;
+            affection_attitude_map = yaml.load(fs.readFileSync(path.join(getDataDirectory(), `character/${character_name}/affection_attitude_map.yaml`), 'utf8')) as AffectionAttitudeMap;
         } catch (e) {
             affection_attitude_map = { conditions: [{ if_above: 80, attitude: "유저에게 우호적" }, { if_above: 50, attitude: "neutral" }, { if_above: 0, attitude: "유저에게 적대적" }] };
         }
@@ -40,7 +40,7 @@ class YamlCharacterRepository implements ICharacterRepository {
     }
 
     getCharacterAppearance(character_name: string): CharacterAppearance {
-        return yaml.load(fs.readFileSync(path.join(dataDirectory, `character/${character_name}/appearance.yaml`), 'utf8')) as CharacterAppearance;
+        return yaml.load(fs.readFileSync(path.join(getDataDirectory(), `character/${character_name}/appearance.yaml`), 'utf8')) as CharacterAppearance;
     }
 }
 
