@@ -1,5 +1,6 @@
 import { logger } from '../config/logger';
 import Store from 'electron-store'
+import { IRelationshipRepository } from 'main/domain/repositories/IRelationshipRepository';
 
 const relationshipStore = new Store({ name: 'relationship' });
 
@@ -10,36 +11,55 @@ export type Relationship = {
     attitude_to_user: string;
 }
 
-const character_relationships: Relationship[] = (() => {
-    if (relationshipStore.has('relationship')) {
-        return relationshipStore.get('relationship') as Relationship[];
-    } else {
-        return [];
+class ElectronStoreRelationshipRepository implements IRelationshipRepository {
+    private character_relationships: Relationship[];
+
+    constructor() {
+        this.character_relationships = (() => {
+            if (relationshipStore.has('relationship')) {
+                return relationshipStore.get('relationship') as Relationship[];
+            } else {
+                return [];
+            }
+        })();
     }
-})();
 
+    getCharacterRelationships(character_name: string): Relationship {
+        let character_relationship = this.character_relationships.find((relationship: Relationship) => relationship.character === character_name);
+        if (!character_relationship) {
+            character_relationship = {
+                character: character_name,
+                affection_to_user: 50,
+                attitude_to_user: "neutral"
+            };
+            this.character_relationships.push(character_relationship);
+        }
+        return character_relationship;
+    }
 
+    async updateCharacterRelationships(character_name: string, affection_to_user: number, attitude_to_user: string): Promise<Relationship> {
+        const character_relationship = this.character_relationships.find((relationship: Relationship) => relationship.character === character_name);
+        if (!character_relationship) {
+            throw new Error(`Character relationship not found for ${character_name}`);
+        }
+        character_relationship.affection_to_user = affection_to_user;
+        character_relationship.attitude_to_user = attitude_to_user;
+        relationshipStore.set('relationship', this.character_relationships);
+        return character_relationship;
+    }
+}
+
+// Singleton instance
+const relationshipRepository = new ElectronStoreRelationshipRepository();
+
+// Backward compatibility - keep old interface
 export const getCharacterRelationships = (character_name: string): Relationship => {
-    let character_relationship = character_relationships.find((relationship: Relationship) => relationship.character === character_name);
-    if (!character_relationship) {
-        character_relationship = {
-            character: character_name,
-            affection_to_user: 50,
-            attitude_to_user: "neutral"
-        };
-        character_relationships.push(character_relationship);
-    }
-    return character_relationship;
+    return relationshipRepository.getCharacterRelationships(character_name);
 };
 
-export const updateCharacterRelationships = async (character_name: string, affection_to_user: number, attitude_to_user: string) => {
-    const character_relationship = character_relationships.find((relationship: Relationship) => relationship.character === character_name);
-    if (!character_relationship) {
-        throw new Error(`Character relationship not found for ${character_name}`);
-    }
-    character_relationship.affection_to_user = affection_to_user;
-    character_relationship.attitude_to_user = attitude_to_user;
-    relationshipStore.set('relationship', character_relationships);
-    return character_relationship;
+export const updateCharacterRelationships = async (character_name: string, affection_to_user: number, attitude_to_user: string): Promise<Relationship> => {
+    return relationshipRepository.updateCharacterRelationships(character_name, affection_to_user, attitude_to_user);
 };
+
+export { relationshipRepository };
 
