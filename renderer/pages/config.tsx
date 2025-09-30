@@ -507,8 +507,7 @@ export default function Config() {
                         <span className="text-2xl">LangSmith API Key</span>
                         <SecretInput
                             value={langsmithApiKey}
-                            onChange={(e) => setLangsmithApiKey(e.target.value)}
-                            placeholder="ls_..."
+                            onChange={(value) => setLangsmithApiKey(value)}
                         />
                         <span className="text-sm text-gray-400">
                             Get your API key from <a href="https://smith.langchain.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">smith.langchain.com</a>
