@@ -83,6 +83,10 @@ export interface ConfigResponse {
     // Display scaling configuration
     displayScale: number;
     speechBubbleWidth: number;
+    // Performance optimization
+    enableLightweightModel: boolean;
+    enableAutoSummarization: boolean;
+    summarizationThreshold: number;
 }
 
 export interface UserInput {

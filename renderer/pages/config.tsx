@@ -15,7 +15,10 @@ const RECOMMENDED_MODELS: RecommendedModelsType = {
     'custom': []
 };
 
+type TabType = 'llm' | 'chat' | 'tools' | 'display';
+
 export default function Config() {
+    const [activeTab, setActiveTab] = useState<TabType>('llm');
     const [isLoading, setIsLoading] = useState(true);
     const [llmProvider, setLlmProvider] = useState<LLMProvider>('openai');
     const [modelName, setModelName] = useState<string>('gpt-5');
@@ -38,6 +41,9 @@ export default function Config() {
     const [chatHistoryLimit, setChatHistoryLimit] = useState(100);
     const [displayScale, setDisplayScale] = useState(0.5);
     const [speechBubbleWidth, setSpeechBubbleWidth] = useState(500);
+    const [enableLightweightModel, setEnableLightweightModel] = useState(true);
+    const [enableAutoSummarization, setEnableAutoSummarization] = useState(true);
+    const [summarizationThreshold, setSummarizationThreshold] = useState(40);
 
     // Legacy support - map old llmService to new provider
     const [llmService, setLlmService] = useState<'openai' | 'anthropic'>('openai');
@@ -62,6 +68,10 @@ export default function Config() {
             // Display settings
             displayScale,
             speechBubbleWidth,
+            // Performance optimization
+            enableLightweightModel,
+            enableAutoSummarization,
+            summarizationThreshold,
         });
         setToastMessage('Config saved!');
     }
@@ -92,6 +102,9 @@ export default function Config() {
 
         setDisplayScale(response.displayScale || 0.5);
         setSpeechBubbleWidth(response.speechBubbleWidth || 500);
+        setEnableLightweightModel(response.enableLightweightModel !== false); // default true
+        setEnableAutoSummarization(response.enableAutoSummarization !== false); // default true
+        setSummarizationThreshold(response.summarizationThreshold || 40); // default 40
 
         setIsLoading(false);
     }
@@ -141,13 +154,23 @@ export default function Config() {
     const recommendedModels = RECOMMENDED_MODELS[llmProvider] || [];
     const effectiveModelName = useCustomModel ? customModelInput : modelName;
 
-    return (
-        <div className="config-page bg-gray-800 text-white p-4 h-screen w-screen overflow-y-auto">
-            {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage('')} />}
-            <h1 className="text-3xl font-bold mb-4">Config</h1>
+    const TabButton = ({ tab, label }: { tab: TabType, label: string }) => (
+        <button
+            className={`px-4 py-2 text-lg font-medium ${
+                activeTab === tab
+                    ? 'bg-gray-700 text-white border-l-4 border-blue-500'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-750 hover:text-white'
+            }`}
+            onClick={() => setActiveTab(tab)}
+        >
+            {label}
+        </button>
+    );
 
+    const renderLLMTab = () => (
+        <div className="space-y-4">
             {/* LLM Provider Selection */}
-            <label className="flex flex-col gap-2 py-4">
+            <label className="flex flex-col gap-2">
                 <span className="text-2xl">LLM Provider</span>
                 <select
                     className="bg-gray-700 text-white px-4 py-2 rounded-md"
@@ -165,7 +188,7 @@ export default function Config() {
             </label>
 
             {/* Model Selection */}
-            <label className="flex flex-col gap-2 py-4">
+            <label className="flex flex-col gap-2">
                 <span className="text-2xl">Model</span>
 
                 {/* Recommended models dropdown */}
@@ -221,7 +244,7 @@ export default function Config() {
             </label>
 
             {/* Temperature */}
-            <label className="flex flex-col gap-2 py-4">
+            <label className="flex flex-col gap-2">
                 <div className="flex flex-row gap-2">
                     <span className="text-2xl">Temperature</span>
                     <span className="text-2xl">{temperature}</span>
@@ -239,28 +262,28 @@ export default function Config() {
 
             {/* API Keys based on provider */}
             {(llmProvider === 'openai' || llmProvider === 'azure-openai') && (
-                <label className="flex flex-col gap-2 py-2">
+                <label className="flex flex-col gap-2">
                     <span className="text-2xl">OpenAI API Key</span>
                     <SecretInput value={openaiApiKey} onChange={(value) => setOpenaiApiKey(value)} />
                 </label>
             )}
 
             {llmProvider === 'anthropic' && (
-                <label className="flex flex-col gap-2 py-2">
+                <label className="flex flex-col gap-2">
                     <span className="text-2xl">Anthropic API Key</span>
                     <SecretInput value={anthropicApiKey} onChange={(value) => setAnthropicApiKey(value)} />
                 </label>
             )}
 
             {(llmProvider === 'openrouter' || llmProvider === 'aws-bedrock' || llmProvider === 'google-vertex' || llmProvider === 'custom') && (
-                <label className="flex flex-col gap-2 py-2">
+                <label className="flex flex-col gap-2">
                     <span className="text-2xl">{llmProvider === 'openrouter' ? 'OpenRouter' : 'Custom'} API Key</span>
                     <SecretInput value={customApiKey} onChange={(value) => setCustomApiKey(value)} />
                 </label>
             )}
 
             {/* Advanced Settings */}
-            <div className="py-4">
+            <div className="py-2">
                 <button
                     className="text-blue-400 hover:text-blue-300 text-lg"
                     onClick={() => setShowAdvanced(!showAdvanced)}
@@ -286,32 +309,124 @@ export default function Config() {
                     </div>
                 )}
             </div>
+        </div>
+    );
 
-            {/* Other API Keys */}
-            <label className="flex flex-col gap-2 py-2">
-                <span className="text-2xl">OpenWeatherMap API Key</span>
-                <SecretInput value={openweathermapApiKey} onChange={(value) => setOpenweathermapApiKey(value)} />
-            </label>
-
-            <label className="flex flex-col gap-2 py-2">
-                <span className="text-2xl">CoinMarketCap API Key</span>
-                <SecretInput value={coinmarketcapApiKey} onChange={(value) => setCoinmarketcapApiKey(value)} />
-            </label>
-
+    const renderChatTab = () => (
+        <div className="space-y-4">
             {/* Chat History Limit */}
-            <label className="flex flex-col gap-2 py-2">
-                <span className="text-2xl">Save chat history up to</span>
+            <label className="flex flex-col gap-2">
+                <span className="text-2xl">Chat History Limit</span>
                 <input
                     type="number"
                     value={chatHistoryLimit}
                     onChange={(e) => setChatHistoryLimit(Number(e.target.value))}
                     className="bg-gray-700 text-white px-4 py-2 rounded-md"
-                    style={{width: '100px'}}
+                    style={{width: '150px'}}
                 />
+                <span className="text-sm text-gray-400">
+                    Maximum number of messages to keep in chat history
+                </span>
             </label>
 
+            {/* Performance Optimization Section */}
+            <div className="border-t border-gray-700 pt-4 mt-4">
+                <h3 className="text-xl font-semibold mb-3">Performance Optimization</h3>
+
+                {/* Auto Summarization */}
+                <label className="flex items-center gap-3 py-2">
+                    <input
+                        type="checkbox"
+                        checked={enableAutoSummarization}
+                        onChange={(e) => setEnableAutoSummarization(e.target.checked)}
+                        className="w-5 h-5"
+                    />
+                    <div className="flex flex-col flex-1">
+                        <span className="text-lg">Auto Summarization</span>
+                        <span className="text-sm text-gray-400">
+                            Automatically summarize long conversations to reduce token usage
+                        </span>
+                    </div>
+                </label>
+
+                {/* Summarization Threshold */}
+                {enableAutoSummarization && (
+                    <label className="flex flex-col gap-2 pl-8">
+                        <span className="text-md">Summarization Threshold</span>
+                        <input
+                            type="number"
+                            value={summarizationThreshold}
+                            onChange={(e) => setSummarizationThreshold(Number(e.target.value))}
+                            className="bg-gray-700 text-white px-4 py-2 rounded-md"
+                            style={{width: '150px'}}
+                            min="20"
+                            max="100"
+                        />
+                        <span className="text-sm text-gray-400">
+                            Summarize when message count exceeds this number (default: 40)
+                        </span>
+                    </label>
+                )}
+
+                {/* Lightweight Model */}
+                <label className="flex items-center gap-3 py-2">
+                    <input
+                        type="checkbox"
+                        checked={enableLightweightModel}
+                        onChange={(e) => setEnableLightweightModel(e.target.checked)}
+                        className="w-5 h-5"
+                    />
+                    <div className="flex flex-col">
+                        <span className="text-lg">Use Lightweight Models</span>
+                        <span className="text-sm text-gray-400">
+                            Use faster, cheaper models (gpt-4o-mini, claude-haiku) for tool calls and summarization
+                        </span>
+                    </div>
+                </label>
+            </div>
+
+            {/* Reset Chat History */}
+            <div className="border-t border-gray-700 pt-4 mt-4">
+                <button
+                    className="text-white px-4 py-2 rounded-md w-full hover:opacity-80"
+                    style={{background:'rgba(215, 0, 0, 1)'}}
+                    onClick={() => window.ipc.send('user-action', 'RESET_CHAT_HISTORY')}
+                >
+                    Reset Chat History
+                </button>
+                <span className="text-sm text-gray-400 block mt-2">
+                    Warning: This will permanently delete all conversation history
+                </span>
+            </div>
+        </div>
+    );
+
+    const renderToolsTab = () => (
+        <div className="space-y-4">
+            {/* OpenWeatherMap API Key */}
+            <label className="flex flex-col gap-2">
+                <span className="text-2xl">OpenWeatherMap API Key</span>
+                <SecretInput value={openweathermapApiKey} onChange={(value) => setOpenweathermapApiKey(value)} />
+                <span className="text-sm text-gray-400">
+                    Required for weather-related features
+                </span>
+            </label>
+
+            {/* CoinMarketCap API Key */}
+            <label className="flex flex-col gap-2">
+                <span className="text-2xl">CoinMarketCap API Key</span>
+                <SecretInput value={coinmarketcapApiKey} onChange={(value) => setCoinmarketcapApiKey(value)} />
+                <span className="text-sm text-gray-400">
+                    Required for cryptocurrency price information
+                </span>
+            </label>
+        </div>
+    );
+
+    const renderDisplayTab = () => (
+        <div className="space-y-4">
             {/* Display Scale */}
-            <label className="flex flex-col gap-2 py-4">
+            <label className="flex flex-col gap-2">
                 <div className="flex flex-row gap-2">
                     <span className="text-2xl">Display Scale</span>
                     <span className="text-2xl">{(displayScale * 100).toFixed(0)}%</span>
@@ -331,7 +446,7 @@ export default function Config() {
             </label>
 
             {/* Speech Bubble Width */}
-            <label className="flex flex-col gap-2 py-2">
+            <label className="flex flex-col gap-2">
                 <span className="text-2xl">Speech Bubble Width</span>
                 <input
                     type="number"
@@ -341,38 +456,56 @@ export default function Config() {
                     style={{width: '150px'}}
                 />
                 <span className="text-sm text-gray-400">
-                    Width in pixels. Default: 500
+                    Width in pixels. Default: 500. Requires restart.
                 </span>
             </label>
+        </div>
+    );
 
-            {/* Action Buttons */}
-            <div className="flex gap-2 py-4">
-                <button
-                    className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
-                    style={{ flex: 1 }}
-                    onClick={saveConfig}
-                >
-                    Save
-                </button>
-                <button
-                    className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600"
-                    style={{ flex: 1 }}
-                    onClick={() => window.ipc.send('user-action', 'CLOSE_CONFIG')}
-                >
-                    Close
-                </button>
+    return (
+        <div className="config-page bg-gray-800 text-white h-screen w-screen flex">
+            {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage('')} />}
+
+            {/* Left Sidebar */}
+            <div className="w-48 bg-gray-900 flex flex-col border-r border-gray-700">
+                <div className="p-4 border-b border-gray-700">
+                    <h1 className="text-2xl font-bold">Settings</h1>
+                </div>
+                <div className="flex-1 flex flex-col">
+                    <TabButton tab="llm" label="LLM" />
+                    <TabButton tab="chat" label="Chat" />
+                    <TabButton tab="tools" label="Tools" />
+                    <TabButton tab="display" label="Display" />
+                </div>
             </div>
 
-            {/* Reset Chat History */}
-            <label className="flex flex-col gap-2 py-2">
-                <button
-                    className="text-white px-4 py-2 rounded-md w-full hover:opacity-80"
-                    style={{background:'rgba(215, 0, 0, 1)'}}
-                    onClick={() => window.ipc.send('user-action', 'RESET_CHAT_HISTORY')}
-                >
-                    Reset chat history
-                </button>
-            </label>
+            {/* Main Content */}
+            <div className="flex-1 flex flex-col">
+                <div className="flex-1 overflow-y-auto p-6">
+                    {activeTab === 'llm' && renderLLMTab()}
+                    {activeTab === 'chat' && renderChatTab()}
+                    {activeTab === 'tools' && renderToolsTab()}
+                    {activeTab === 'display' && renderDisplayTab()}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 p-4 border-t border-gray-700">
+                    <button
+                        className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
+                        style={{ flex: 1 }}
+                        onClick={saveConfig}
+                    >
+                        Save
+                    </button>
+                    <button
+                        className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700"
+                        style={{ flex: 1 }}
+                        onClick={() => window.ipc.send('user-action', 'CLOSE_CONFIG')}
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
         </div>
     )
 }

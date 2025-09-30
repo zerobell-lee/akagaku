@@ -1,6 +1,7 @@
 import { GhostResponse, LLMService, UserInput } from "@shared/types";
 import { ResponseNode } from "./graph/nodes/ResponseNode";
 import { UpdateChatHistoryNode, UpdateUserSettingNode } from "./graph/nodes/UpdateNode";
+import { SummarizeNode } from "./graph/nodes/SummarizeNode";
 import { GhostState, llmProperties } from "./graph/states";
 import { Annotation, CompiledStateGraph, END, START, StateDefinition, StateGraph } from "@langchain/langgraph";
 import { getUserSetting } from "main/infrastructure/user/UserRepository";
@@ -14,6 +15,7 @@ import { createAgentForConversation, createAgentForTool } from "./graph/llm/Agen
 import { loadToolPrompt, loadSystemPrompt } from "./graph/prompt/prompt";
 import { AIResponseParser } from "main/infrastructure/message/MessageParser";
 import { AkagakuMessageConverter } from "../message/AkagakuMessage";
+import { ToolCallDetector } from "./graph/utils/ToolCallDetector";
 
 export const createGhostGraph = () => {
     const StateAnnotation = Annotation.Root({
@@ -49,11 +51,13 @@ export const createGhostGraph = () => {
     })
 
     const graph = new StateGraph(StateAnnotation)
+        .addNode("summarize", SummarizeNode)
         .addNode("tool", ToolNode)
         .addNode("updateChatHistory", UpdateChatHistoryNode)
         .addNode("updateUserSetting", UpdateUserSettingNode)
         .addNode("response", ResponseNode)
-        .addConditionalEdges(START, (state) => {
+        .addEdge(START, "summarize")
+        .addConditionalEdges("summarize", (state) => {
             const { skipToolCall } = state;
             if (skipToolCall) {
                 return 'response';
@@ -135,6 +139,15 @@ export class Ghost {
         this.conversation_count++;
         const userSetting = getUserSetting();
         const chatHistory = getChatHistory(this.character_setting.character_id);
+
+        // Smart tool call detection: skip tool calls for simple conversational messages
+        const shouldSkipToolCall = isSystemMessage || !ToolCallDetector.needsToolCall(input);
+
+        if (shouldSkipToolCall && !isSystemMessage) {
+            const skipReason = ToolCallDetector.getSkipReason(input);
+            console.log(`[Performance] Skipping tool call: ${skipReason || 'No tool keywords detected'}`);
+        }
+
         const state: GhostState = {
             userInput: { payload: input, isSystemMessage },
             character_setting: this.character_setting,
@@ -150,7 +163,7 @@ export class Ghost {
             promptForCharacter: '',
             promptForTool: '',
             toolCallHistory: [],
-            skipToolCall: isSystemMessage,
+            skipToolCall: shouldSkipToolCall,
             toolCallFinalAnswer: '',
             toolCallCompleted: false,
             is_user_update_needed: this.conversation_count % 5 === 0,

@@ -7,6 +7,7 @@ export interface AkagakuBaseMessage {
     type: string;
     createdAt: Date;
     content: any;
+    isSummary?: boolean;
     toChatLog: () => ChatLog;
 }
 
@@ -39,16 +40,20 @@ export class AkagakuSystemMessage implements AkagakuBaseMessage {
     type = 'system';
     content: string;
     createdAt: Date;
+    isSummary?: boolean;
 
     constructor({
         content,
-        createdAt
+        createdAt,
+        isSummary
     }: {
         content: string;
         createdAt: Date;
+        isSummary?: boolean;
     }) {
         this.content = content;
         this.createdAt = createdAt;
+        this.isSummary = isSummary;
     }
 
     toChatLog(): ChatLog {

@@ -321,7 +321,10 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
         coinmarketcapApiKey: configRepository.getConfig('coinmarketcapApiKey') as string || "",
         chatHistoryLimit: configRepository.getConfig('chatHistoryLimit') as number || 100,
         displayScale: configRepository.getConfig('displayScale') as number || 0.5,
-        speechBubbleWidth: configRepository.getConfig('speechBubbleWidth') as number || 500
+        speechBubbleWidth: configRepository.getConfig('speechBubbleWidth') as number || 500,
+        enableLightweightModel: configRepository.getConfig('enableLightweightModel') !== false,
+        enableAutoSummarization: configRepository.getConfig('enableAutoSummarization') !== false,
+        summarizationThreshold: configRepository.getConfig('summarizationThreshold') as number || 40
       });
     }
     else if (arg === 'OPEN_CONFIG') {
@@ -385,7 +388,17 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     }
     else if (arg === 'LOG_OPENED') {
       const chatHistory = getChatHistory(characterName)
-      logsWindow?.webContents.send('receive_chatlogs', chatHistory.toChatLogs())
+      const archiveList = chatHistoryRepository.getArchiveList(characterName)
+      logsWindow?.webContents.send('receive_chatlogs', {
+        current: chatHistory.toChatLogs(),
+        archives: archiveList.map(key => ({
+          key,
+          timestamp: key.split('_').pop()?.replace('.json', '') || ''
+        }))
+      })
+    }
+    else if (arg === 'LOAD_ARCHIVE') {
+      // This will be sent with data from renderer
     }
   })
 
@@ -414,7 +427,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     }
   })
 
-  ipcMain.on('save_config', (event, { openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature, openweathermapApiKey, coinmarketcapApiKey, chatHistoryLimit, displayScale, speechBubbleWidth }) => {
+  ipcMain.on('save_config', (event, { openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature, openweathermapApiKey, coinmarketcapApiKey, chatHistoryLimit, displayScale, speechBubbleWidth, enableLightweightModel, enableAutoSummarization, summarizationThreshold }) => {
     console.log(openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature, openweathermapApiKey)
     const previousOpenaiApiKey = configRepository.getConfig('openaiApiKey') as string || "";
     const previousAnthropicApiKey = configRepository.getConfig('anthropicApiKey') as string || "";
@@ -464,9 +477,20 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
       app.relaunch();
       app.quit();
     }
+    configRepository.setConfig('enableLightweightModel', enableLightweightModel);
+    configRepository.setConfig('enableAutoSummarization', enableAutoSummarization);
+    configRepository.setConfig('summarizationThreshold', summarizationThreshold);
     if (updateRequired) {
       ghost.updateExecuter({ openaiApiKey: openaiApiKey, anthropicApiKey: anthropicApiKey, llmService: llmService as 'openai' | 'anthropic', modelName: selectedModel, temperature: temperature });
     }
+  })
+
+  ipcMain.on('load-archive', (event, archiveKey: string) => {
+    const archiveMessages = chatHistoryRepository.getArchive(archiveKey)
+    const chatLogs = archiveMessages
+      .filter(msg => msg.type !== 'system')
+      .map(msg => msg.toChatLog())
+    logsWindow?.webContents.send('receive_archive_logs', chatLogs)
   })
 
   ipcMain.on('user-message', async (event, message: UserInput) => {

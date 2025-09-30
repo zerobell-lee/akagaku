@@ -9,6 +9,7 @@ import { RunnableLambda } from "@langchain/core/runnables";
 import { Affection } from "main/domain/value-objects/Affection";
 import { Attitude } from "main/domain/value-objects/Attitude";
 import { Relationship } from "main/domain/entities/Relationship";
+import { PerformanceMonitor } from "../utils/PerformanceMonitor";
 
 const getCurrentTimestamp = (sentAt: Date) => {
     return formatDatetime(sentAt);
@@ -20,7 +21,30 @@ const getCurrentAttitude = (characterName: string, affection: Affection): Attitu
 }
 
 const convertContextInputs = (fieldName: string, input: any) => {
-    return `${fieldName} = ${JSON.stringify(input)}`
+    // Optimized: Use compact string format instead of JSON.stringify
+    if (Array.isArray(input)) {
+        if (input.length === 0) return `${fieldName} = []`;
+        if (typeof input[0] === 'string') {
+            return `${fieldName} = ${input.join(', ')}`;
+        }
+        // For message arrays, use minimal format
+        return `${fieldName} = ${input.map(msg => {
+            if (msg._getType) {
+                const type = msg._getType();
+                const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+                return `[${type}] ${content}`;
+            }
+            return JSON.stringify(msg);
+        }).join('\n')}`;
+    }
+
+    if (typeof input === 'object' && input !== null) {
+        // For objects, use compact key=value format
+        const entries = Object.entries(input);
+        return `${fieldName} = ${entries.map(([k, v]) => `${k}=${v}`).join(', ')}`;
+    }
+
+    return `${fieldName} = ${input}`;
 }
 
 export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>({
@@ -41,16 +65,26 @@ export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>(
         let newMessage = createMessageFromUserInput(userInput, sentAt)
         let langchainChatHistory: BaseMessage[] = chat_history.getMessages().map((message) => messageConverter.convertToLangChainMessage(message));
 
+        // Optimized: Only send essential character_setting fields to reduce token usage
+        const essentialCharacterSetting = {
+            name: character_setting.name || character_setting.character_name,
+            dialogue_style: character_setting.dialogue_style,
+            personality: character_setting.dialogue_style?.personality,
+            background: character_setting.background
+        };
+
         const payload = {
             input: newMessage.content as string,
-            character_setting: convertContextInputs('character_setting', character_setting),
+            character_setting: convertContextInputs('character_setting', essentialCharacterSetting),
             user_setting: convertContextInputs('user_setting', user_setting),
             chat_history: convertContextInputs('chat_history', langchainChatHistory),
             available_emoticon: convertContextInputs('available_emoticon', character_setting.available_emoticon || '["neutral"]'),
             relationship: convertContextInputs('relationship', relationship.toRaw()),
             tool_call_result: `tool_call_result = ${toolCallFinalAnswer}`
         }
+        PerformanceMonitor.start('LLM Response Generation');
         const response = await conversationAgent.invoke(payload);
+        PerformanceMonitor.end('LLM Response Generation');
         chat_history.addMessage(newMessage);
         try {
             const parsed = aiResponseParser.parseGhostResponse(response);
