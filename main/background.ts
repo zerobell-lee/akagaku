@@ -65,10 +65,9 @@ const ghost = new GhostService(
 
 console.log("ghost", ghost);
 
-// macOS에서 렌더링 문제를 피하기 위해 scale factor 설정을 Windows/Linux에서만 적용
-if (process.platform !== 'darwin') {
-  app.commandLine.appendSwitch('force-device-scale-factor', '1');
-}
+// Force device scale factor to 1.0 to prevent scaling issues on high-DPI displays
+// This ensures consistent rendering across all platforms (Windows, macOS Retina, Linux)
+app.commandLine.appendSwitch('force-device-scale-factor', '1');
 
 const createGhostWindow = (characterAppearance: CharacterAppearance) => {
   const screenWidth = screen.getPrimaryDisplay().workAreaSize.width
