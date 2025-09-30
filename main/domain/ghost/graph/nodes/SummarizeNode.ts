@@ -27,21 +27,24 @@ export const SummarizeNode = new RunnableLambda<GhostState, Partial<GhostState>>
 
         // Get threshold from config (default 40)
         const summarizationThreshold = configRepository.getConfig('summarizationThreshold') as number || 40;
-        const messageCount = chat_history.getMessages(999).length;
+        const allMessages = chat_history.getMessages(999);
+
+        // Count only non-summary messages (actual conversation)
+        const actualConversationCount = allMessages.filter(msg => !msg.isSummary).length;
 
         // Skip if below threshold
-        if (messageCount <= summarizationThreshold) {
+        if (actualConversationCount <= summarizationThreshold) {
+            console.log(`[Performance] Summarization skipped: ${actualConversationCount} messages (threshold: ${summarizationThreshold})`);
             return {};
         }
 
         // Check if lightweight model is enabled
         const enableLightweightModel = configRepository.getConfig('enableLightweightModel') !== false;
 
-        console.log(`[Performance] Summarizing conversation: ${messageCount} messages -> ${KEEP_RECENT_MESSAGES} + summary`);
+        console.log(`[Performance] Summarizing conversation: ${actualConversationCount} messages -> ${KEEP_RECENT_MESSAGES} + summary`);
 
-        const allMessages = chat_history.getMessages(999);
-        const messagesToSummarize = allMessages.slice(0, messageCount - KEEP_RECENT_MESSAGES);
-        const recentMessages = allMessages.slice(messageCount - KEEP_RECENT_MESSAGES);
+        const messagesToSummarize = allMessages.slice(0, actualConversationCount - KEEP_RECENT_MESSAGES);
+        const recentMessages = allMessages.slice(actualConversationCount - KEEP_RECENT_MESSAGES);
 
         // Create summarization prompt
         const conversationText = messagesToSummarize
@@ -98,7 +101,7 @@ Summary:`;
                 chat_history.getMessages().length
             );
 
-            console.log(`[Performance] Summarization complete: ${messageCount} -> ${newChatHistory.getMessages(999).length} messages`);
+            console.log(`[Performance] Summarization complete: ${actualConversationCount} -> ${newChatHistory.getMessages(999).length} messages`);
 
             return {
                 chat_history: newChatHistory
