@@ -33,7 +33,7 @@ const characterName = configRepository.getConfig('characterName') as string || "
 const ghost = new Ghost(
   {
     llm_properties: {
-      llmService: llmService as string,
+      llmService: llmService as 'openai' | 'anthropic',
       modelName: selectedModel as string,
       apiKey: llmService === 'openai' ? openaiApiKey as string : anthropicApiKey as string,
       temperature: temperature as number,
@@ -44,7 +44,10 @@ const ghost = new Ghost(
 
 console.log("ghost", ghost);
 
-app.commandLine.appendSwitch('force-device-scale-factor', '1');
+// macOS에서 렌더링 문제를 피하기 위해 scale factor 설정을 Windows/Linux에서만 적용
+if (process.platform !== 'darwin') {
+  app.commandLine.appendSwitch('force-device-scale-factor', '1');
+}
 
 const createGhostWindow = (characterAppearance: CharacterAppearance) => {
   const screenWidth = screen.getPrimaryDisplay().workAreaSize.width
@@ -77,13 +80,22 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
   if (isProd) {
     window.loadURL(`app://./${url}`)
   } else {
-    const port = process.argv[2]
-    window.loadURL(`http://localhost:${port}/${url}`)
+    // nextron에서 포트가 제대로 전달되지 않을 경우 기본 포트 사용
+    const port = process.argv[2] || '8888'
+    const fullUrl = `http://localhost:${port}/${url}`
+    console.log(`Loading URL: ${fullUrl}`)
+    console.log(`Process args:`, process.argv)
+    window.loadURL(fullUrl)
   }
 }
 
 (async () => {
   await app.whenReady()
+  
+  // macOS에서는 추가적인 초기화 시간이 필요할 수 있음
+  if (process.platform === 'darwin') {
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
 
   protocol.handle('local-resource', async (request) => {
     const url = request.url.replace('local-resource://', '')
@@ -111,13 +123,24 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
   const mainWindow = createGhostWindow(characterAppearance)
 
   loadUrlOnBrowserWindow(mainWindow, 'home')
-
-  const tray = new Tray(path.join(__dirname, '../resources/icon.ico'))
-  tray.setToolTip('Akagaku')
-  tray.on('click', () => {
+  
+  // macOS에서 앱이 제대로 표시되도록 함
+  if (process.platform === 'darwin') {
+    app.dock?.show()
     mainWindow.show()
-  })
-  // mainWindow.webContents.openDevTools()
+    app.focus()
+  }
+
+  // Tray 아이콘 설정 (macOS에서는 .ico 파일이 지원되지 않을 수 있음)
+  try {
+    const tray = new Tray(path.join(__dirname, '../resources/icon.ico'))
+    tray.setToolTip('Akagaku')
+    tray.on('click', () => {
+      mainWindow.show()
+    })
+  } catch (error) {
+    console.warn('Tray icon could not be loaded:', error)
+  }
 
   let userChatInputWindow: BrowserWindow | null = null;
   let configWindow: BrowserWindow | null = null;
@@ -396,7 +419,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
       configRepository.setConfig('coinmarketcapApiKey', coinmarketcapApiKey);
     }
     if (updateRequired) {
-      ghost.updateExecuter({ openaiApiKey: openaiApiKey, anthropicApiKey: anthropicApiKey, llmService: llmService, modelName: selectedModel, temperature: temperature });
+      ghost.updateExecuter({ openaiApiKey: openaiApiKey, anthropicApiKey: anthropicApiKey, llmService: llmService as 'openai' | 'anthropic', modelName: selectedModel, temperature: temperature });
     }
   })
 
