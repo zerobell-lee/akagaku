@@ -8,7 +8,7 @@ import { CharacterSettingLoader } from './infrastructure/character/CharacterRepo
 import fs from 'fs'
 import { CharacterAppearance, CharacterProperties, UserInput, GhostResponse } from '@shared/types'
 import dotenv from 'dotenv'
-import { getChatHistory } from './infrastructure/chat/ChatHistoryRepository'
+import { getChatHistory, chatHistoryRepository } from './infrastructure/chat/ChatHistoryRepository'
 
 
 // app.commandLine.appendSwitch('high-dpi-support', '1');

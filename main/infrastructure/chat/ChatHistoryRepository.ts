@@ -140,6 +140,9 @@ class ElectronStoreChatHistoryRepository implements IChatHistoryRepository {
 // Singleton instance
 const chatHistoryRepository = new ElectronStoreChatHistoryRepository();
 
+// Export singleton instance
+export { chatHistoryRepository };
+
 // Backward compatibility - keep old interface
 export const getChatHistory = (character_name: string): AkagakuChatHistory => {
   return chatHistoryRepository.getChatHistory(character_name);
@@ -148,5 +151,3 @@ export const getChatHistory = (character_name: string): AkagakuChatHistory => {
 export const updateChatHistory = async (character_name: string, history: AkagakuChatHistory): Promise<void> => {
   return chatHistoryRepository.updateChatHistory(character_name, history);
 }
-
-export { chatHistoryRepository };

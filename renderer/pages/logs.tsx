@@ -18,14 +18,22 @@ export default function Logs() {
     const [currentView, setCurrentView] = useState<string>('current')
 
     useEffect(() => {
-        window.ipc.on('receive_chatlogs', (data: { current: ChatLog[], archives: Archive[] }) => {
-            setLogs(data.current)
-            setArchives(data.archives)
+        window.ipc.on('receive_chatlogs', (data: ChatLog[] | { current: ChatLog[], archives: Archive[] }) => {
+            // Handle both old format (array) and new format (object with current/archives)
+            if (Array.isArray(data)) {
+                // Old format: just an array of logs
+                setLogs(data)
+                setArchives([])
+            } else {
+                // New format: object with current and archives
+                setLogs(data.current || [])
+                setArchives(data.archives || [])
+            }
             console.log('Received chatlogs:', data)
         })
 
         window.ipc.on('receive_archive_logs', (archiveLogs: ChatLog[]) => {
-            setLogs(archiveLogs)
+            setLogs(archiveLogs || [])
             console.log('Received archive logs:', archiveLogs)
         })
 
