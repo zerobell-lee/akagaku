@@ -14,6 +14,7 @@ export class TriggerManager {
   private checkIntervalMs: number;
   private intervalHandle: NodeJS.Timeout | null = null;
   private onTriggerFire: ((message: string, triggerId: string) => void) | null = null;
+  private contextProvider: (() => Omit<TriggerContext, 'currentTime'>) | null = null;
 
   constructor(checkIntervalMs: number = 60000) {
     // Default: check every minute
@@ -85,21 +86,23 @@ export class TriggerManager {
 
   /**
    * Start periodic trigger checking
+   * @param contextProvider - Function that provides current context (called on each check)
    */
-  start(context: Omit<TriggerContext, 'currentTime'>): void {
+  start(contextProvider: () => Omit<TriggerContext, 'currentTime'>): void {
     if (this.intervalHandle) {
       console.warn('[TriggerManager] Already started');
       return;
     }
 
+    this.contextProvider = contextProvider;
     console.log(`[TriggerManager] Starting with ${this.triggers.size} triggers`);
 
     // Check immediately
-    this.checkTriggers(context);
+    this.checkTriggers();
 
     // Then check periodically
     this.intervalHandle = setInterval(() => {
-      this.checkTriggers(context);
+      this.checkTriggers();
     }, this.checkIntervalMs);
   }
 
@@ -117,7 +120,13 @@ export class TriggerManager {
   /**
    * Manually check all triggers
    */
-  async checkTriggers(context: Omit<TriggerContext, 'currentTime'>): Promise<void> {
+  async checkTriggers(): Promise<void> {
+    if (!this.contextProvider) {
+      console.warn('[TriggerManager] No context provider set');
+      return;
+    }
+
+    const context = this.contextProvider();
     const fullContext: TriggerContext = {
       ...context,
       currentTime: new Date()

@@ -283,11 +283,11 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
   // Start trigger manager after character loads
   userActionHandler.setOnCharacterLoaded(() => {
     console.log('[TriggerManager] Starting trigger manager');
-    triggerManager.start({
+    triggerManager.start(() => ({
       lastInteractionTime: userActionHandler.getLastInteractionTime(),
       characterId: characterName,
       metadata: {}
-    });
+    }));
   });
 
   // Setup streaming event listeners

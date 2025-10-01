@@ -119,7 +119,10 @@ export class AkagakuMessageConverter {
             return new HumanMessage(formattedMessageContent)
         } else if (message.type === 'system') {
             if (this.llmService === 'anthropic') {
-                return new HumanMessage(formattedMessageContent, { role: 'system' })
+                // Anthropic doesn't support system messages mid-conversation
+                // Prefix content with [System: ...] to indicate system context
+                const systemPrefixedContent = `${formatDatetime(message.createdAt)}|[System] ${content}`
+                return new HumanMessage(systemPrefixedContent)
             }
             return new SystemMessage(formattedMessageContent)
         } else if (message.type === 'character') {

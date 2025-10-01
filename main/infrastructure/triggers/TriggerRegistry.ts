@@ -79,7 +79,9 @@ export class TriggerRegistry {
       enabled: true,
       intervalMs: 5 * 60 * 1000,
       cooldownMs: 10 * 60 * 1000,
-      messages: ['Have a chit chat with the user. Don\'t use any tools.'],
+      messages: [
+        'User has been idle for a while. Start a casual conversation with the user. Don\'t use any tools.'
+      ],
       priority: 50
     };
 
@@ -98,7 +100,7 @@ export class TriggerRegistry {
         {
           hour: 0,
           minute: 0,
-          message: 'It\'s midnight now. Make a casual comment about the time. Don\'t use any tools.'
+          message: 'It is now midnight (00:00). Make a casual comment about the time. Don\'t use any tools.'
         }
       ],
       cooldownMs: 30 * 60 * 1000,

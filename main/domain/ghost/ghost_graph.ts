@@ -222,7 +222,7 @@ export class Ghost {
     }
 
     async doChitChat() {
-        return await this.invoke({ input: "Have a chit chat with the user. Don't use any tools.", isSystemMessage: true });
+        return await this.invoke({ input: "User has been idle. Have a chit chat with the user. Don't use any tools.", isSystemMessage: true });
     }
 
     async sendRawMessage({ input, isSystemMessage }: { input: string, isSystemMessage: boolean }) {
