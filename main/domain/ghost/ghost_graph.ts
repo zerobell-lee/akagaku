@@ -21,6 +21,7 @@ import { ChatAnthropic } from "@langchain/anthropic";
 import { AkagakuSystemMessage } from "../message/AkagakuMessage";
 import { formatDatetime } from "main/infrastructure/utils/DatetimeStringUtils";
 import { ToolRegistry } from "../services/ToolRegistry";
+import { skinRepository } from "main/infrastructure/character/SkinRepository";
 
 export const createGhostGraph = () => {
     const StateAnnotation = Annotation.Root({
@@ -147,6 +148,10 @@ export class Ghost {
             console.log(`[Performance] Skipping tool call: ${skipReason || 'No tool keywords detected'}`);
         }
 
+        // Load current skin description for AI context
+        const activeSkinId = skinRepository.getActiveSkin(this.character_setting.character_id);
+        const skinManifest = skinRepository.getSkinManifest(this.character_setting.character_id, activeSkinId);
+
         const state: GhostState = {
             userInput: { payload: input, isSystemMessage },
             character_setting: this.character_setting,
@@ -168,7 +173,8 @@ export class Ghost {
             is_user_update_needed: this.conversation_count % 5 === 0,
             toolAgent: this.toolAgent,
             conversationAgent: this.conversationAgent,
-            messageConverter: this.messageConverter
+            messageConverter: this.messageConverter,
+            currentSkinDescription: skinManifest.description
         }
         const result = await this.graph.invoke(state);
 

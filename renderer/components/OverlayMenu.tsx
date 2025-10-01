@@ -4,6 +4,7 @@ import { IoChatbubbleEllipses } from "react-icons/io5";
 import { ImExit } from "react-icons/im";
 import { TbLogs } from "react-icons/tb";
 import { MdOutlineMinimize } from "react-icons/md";
+import { FaUser } from "react-icons/fa";
 export const OverlayMenu = () => {
     const openChatInput = () => {
         window.ipc.send('user-action', 'CHAT_OPENED')
@@ -40,6 +41,9 @@ export const OverlayMenu = () => {
                 </div>
                 <div className="flex gap-2 w-full cursor-pointer" onClick={openChatInput}>
                     <IoChatbubbleEllipses style={{ width: '30px', height: '30px', fill: 'white' }} />
+                </div>
+                <div className="flex gap-2 w-full cursor-pointer" onClick={() => window.ipc.send('user-action', 'OPEN_CHARACTER_INFO')}>
+                    <FaUser style={{ width: '30px', height: '30px', fill: 'white' }} />
                 </div>
                 <div className="flex gap-2 w-full cursor-pointer" onClick={() => window.ipc.send('user-action', 'OPEN_CONFIG')}>
                     <FaGear style={{ width: '30px', height: '30px', fill: 'white' }} />

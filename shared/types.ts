@@ -138,3 +138,19 @@ export interface ChatLog {
     content: string;
     createdAt: Date;
 }
+
+// Skin system types
+export interface SkinManifest {
+    skin_id: string;           // e.g., "default", "summer"
+    skin_name: string;         // Display name: "기본 스킨", "여름 스킨"
+    description: string;       // Skin description for AI context: "수영복을 입고 있다"
+    version: string;           // e.g., "1.0.0"
+    author?: string;
+    thumbnail?: string;        // Thumbnail image path
+    created_at?: string;
+}
+
+export interface Skin {
+    manifest: SkinManifest;
+    appearance: CharacterAppearance;
+}

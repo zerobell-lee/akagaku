@@ -62,4 +62,5 @@ export interface GhostState {
   toolAgent: Runnable | null;
   conversationAgent: Runnable | null;
   messageConverter: AkagakuMessageConverter;
+  currentSkinDescription: string;  // Current skin description for AI context
 }

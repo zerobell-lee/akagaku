@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- Simple character icon: head + body (2x scale) -->
+  <circle cx="16" cy="8" r="6" fill="black"/>
+  <path d="M 8 16 Q 16 14 24 16 L 24 28 L 8 28 Z" fill="black"/>
+</svg>

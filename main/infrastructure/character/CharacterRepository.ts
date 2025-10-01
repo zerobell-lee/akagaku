@@ -5,6 +5,7 @@ import { app } from 'electron';
 import path from 'path';
 import { AffectionAttitudeMap, CharacterAppearance, CharacterProperties, TouchableArea } from '@shared/types';
 import { ICharacterRepository } from 'main/domain/repositories/ICharacterRepository';
+import { skinRepository } from './SkinRepository';
 
 export interface CharacterSetting {
     character_id: string;
@@ -40,7 +41,10 @@ class YamlCharacterRepository implements ICharacterRepository {
     }
 
     getCharacterAppearance(character_name: string): CharacterAppearance {
-        return yaml.load(fs.readFileSync(path.join(getDataDirectory(), `character/${character_name}/appearance.yaml`), 'utf8')) as CharacterAppearance;
+        // Use skin repository to get appearance with active skin
+        const activeSkinId = skinRepository.getActiveSkin(character_name);
+        logger.info(`[CharacterRepository] Loading appearance for ${character_name} with skin ${activeSkinId}`);
+        return skinRepository.getSkinAppearance(character_name, activeSkinId);
     }
 }
 

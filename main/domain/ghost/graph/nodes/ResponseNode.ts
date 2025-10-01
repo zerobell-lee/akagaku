@@ -91,6 +91,7 @@ export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>(
             chat_history: langchainChatHistory,  // Pass as BaseMessage[] directly
             available_emoticon: `Available emoticons: ${character_setting.available_emoticon || '["neutral"]'}`,
             relationship: convertContextInputs('Relationship', relationship.toRaw()),
+            current_appearance: `Current appearance: ${state.currentSkinDescription}`,
             tool_call_result: toolCallFinalAnswer ? `Tool results:\n${toolCallFinalAnswer}` : ''
         }
 

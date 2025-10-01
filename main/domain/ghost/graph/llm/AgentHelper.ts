@@ -100,6 +100,8 @@ export const createAgentForConversation = async (llmProperties: llmProperties, s
 
 {available_emoticon}
 
+{current_appearance}
+
 {tool_call_result}`],
             ["placeholder", "{chat_history}"],
             ["human", "{input}"],

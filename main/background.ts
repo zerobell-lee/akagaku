@@ -451,6 +451,11 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     await userActionHandler.handleUserMessage(message);
   })
 
+  // Skin change IPC handler
+  ipcMain.on('change-skin', async (event, skinId: string) => {
+    await userActionHandler.handleChangeSkin(skinId);
+  })
+
   mainWindow.on('close', () => {
     // Stop trigger manager on app close
     triggerManager.stop();

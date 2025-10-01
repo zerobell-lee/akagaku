@@ -6,6 +6,10 @@ import { ConfigRepository } from '../../infrastructure/config/ConfigRepository';
 import { ToolConfigRepository } from '../../infrastructure/tools/ToolConfigRepository';
 import { chatHistoryRepository, getChatHistory } from '../../infrastructure/chat/ChatHistoryRepository';
 import { createWindow } from '../../helpers';
+import { skinRepository } from '../../infrastructure/character/SkinRepository';
+import { ListSkinsUseCase } from '../../application/use-cases/ListSkinsUseCase';
+import { ChangeSkinUseCase } from '../../application/use-cases/ChangeSkinUseCase';
+import { relationshipRepository } from '../../infrastructure/user/RelationshipRepository';
 
 /**
  * UserActionHandler - Presentation layer handler for user actions
@@ -30,6 +34,7 @@ export class UserActionHandler {
   private userChatInputWindow: BrowserWindow | null = null;
   private configWindow: BrowserWindow | null = null;
   private logsWindow: BrowserWindow | null = null;
+  private characterInfoWindow: BrowserWindow | null = null;
 
   // State management
   private ghostIsProcessingMessage = false;
@@ -142,7 +147,7 @@ export class UserActionHandler {
       character_height: this.characterAppearance.character_height,
       graphics: this.characterAppearance.graphics.map(graphic => ({
         emoticon: graphic.emoticon,
-        imgSrc: `local-resource://character/${this.characterName}/images/${graphic.imgSrc}`
+        imgSrc: this.buildImagePath(graphic.imgSrc)
       })),
       touchable_areas: this.characterAppearance.touchable_areas,
     };
@@ -396,6 +401,78 @@ export class UserActionHandler {
   }
 
   /**
+   * Handle OPEN_CHARACTER_INFO action
+   * Opens character info window with skins
+   */
+  async handleOpenCharacterInfo(): Promise<void> {
+    if (!this.characterInfoWindow) {
+      this.characterInfoWindow = createWindow('character-info', {
+        width: 700,
+        height: 600,
+        transparent: false,
+        frame: true,
+        webPreferences: {
+          preload: path.join(__dirname, 'preload.js'),
+        },
+      }, this.displayScale, true);
+
+      this.characterInfoWindow.setMenuBarVisibility(false);
+      this.loadUrlOnBrowserWindow(this.characterInfoWindow, 'characterInfo');
+
+      this.characterInfoWindow.on('close', () => {
+        this.characterInfoWindow = null;
+      });
+    } else {
+      this.characterInfoWindow.show();
+    }
+  }
+
+  /**
+   * Handle GET_CHARACTER_INFO action
+   * Sends character info and skins to renderer
+   */
+  async handleGetCharacterInfo(): Promise<void> {
+    const listSkinsUseCase = new ListSkinsUseCase(skinRepository);
+    const skins = listSkinsUseCase.execute(this.characterName);
+    const activeSkinId = skinRepository.getActiveSkin(this.characterName);
+    const relationship = relationshipRepository.findByCharacterName(this.characterName);
+
+    this.characterInfoWindow?.webContents.send('character-info-response', {
+      characterName: this.characterName,
+      activeSkinId,
+      skins,
+      relationship: relationship.toRaw()
+    });
+  }
+
+  /**
+   * Handle CHANGE_SKIN action
+   * Changes character skin and triggers AI reaction
+   */
+  async handleChangeSkin(skinId: string): Promise<void> {
+    console.log(`[UserActionHandler] Changing skin to ${skinId}`);
+
+    const changeSkinUseCase = new ChangeSkinUseCase(skinRepository);
+    const result = changeSkinUseCase.execute({
+      characterId: this.characterName,
+      skinId
+    });
+
+    // Reload character appearance
+    const { characterRepository } = require('../../infrastructure/character/CharacterRepository');
+    this.characterAppearance = characterRepository.getCharacterAppearance(this.characterName);
+
+    // Reload character graphics
+    await this.handleAppStarted();
+
+    // Send system message to ghost about skin change
+    await this.handleUserMessage({
+      input: result.triggerMessage,
+      isSystemMessage: true
+    });
+  }
+
+  /**
    * Main action handler dispatcher
    * Routes actions to appropriate handler methods
    */
@@ -447,6 +524,12 @@ export class UserActionHandler {
         break;
       case 'MOVE_TO_TRAY':
         await this.handleMoveToTray();
+        break;
+      case 'OPEN_CHARACTER_INFO':
+        await this.handleOpenCharacterInfo();
+        break;
+      case 'GET_CHARACTER_INFO':
+        await this.handleGetCharacterInfo();
         break;
       default:
         console.warn('[UserActionHandler] Unknown action:', action);
@@ -629,6 +712,14 @@ export class UserActionHandler {
     } else {
       this.speechBubbleWindow.setPosition(newX - scaledBubbleWidth - 50, newY, false);
     }
+  }
+
+  /**
+   * Build image path with current skin
+   */
+  private buildImagePath(filename: string): string {
+    const activeSkinId = skinRepository.getActiveSkin(this.characterName);
+    return `local-resource://character/${this.characterName}/skins/${activeSkinId}/images/${filename}`;
   }
 
   /**
