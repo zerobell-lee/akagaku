@@ -16,6 +16,10 @@ import { loadToolPrompt, loadSystemPrompt } from "./graph/prompt/prompt";
 import { AIResponseParser } from "main/infrastructure/message/MessageParser";
 import { AkagakuMessageConverter } from "../message/AkagakuMessage";
 import { ToolCallDetector } from "./graph/utils/ToolCallDetector";
+import { ChatOpenAI } from "@langchain/openai";
+import { ChatAnthropic } from "@langchain/anthropic";
+import { AkagakuSystemMessage } from "../message/AkagakuMessage";
+import { formatDatetime } from "main/infrastructure/utils/DatetimeStringUtils";
 
 export const createGhostGraph = () => {
     const StateAnnotation = Annotation.Root({
@@ -51,13 +55,11 @@ export const createGhostGraph = () => {
     })
 
     const graph = new StateGraph(StateAnnotation)
-        .addNode("summarize", SummarizeNode)
         .addNode("tool", ToolNode)
         .addNode("updateChatHistory", UpdateChatHistoryNode)
-        .addNode("updateUserSetting", UpdateUserSettingNode)
+        .addNode("updateUserSetting", UpdateUserSettingNode)  // Kept for backward compatibility but not used
         .addNode("response", ResponseNode)
-        .addEdge(START, "summarize")
-        .addConditionalEdges("summarize", (state) => {
+        .addConditionalEdges(START, (state) => {
             const { skipToolCall } = state;
             if (skipToolCall) {
                 return 'response';
@@ -97,20 +99,7 @@ export const createGhostGraph = () => {
                 end: END
             }
         )
-        .addConditionalEdges("updateChatHistory", (state) => {
-            const { is_user_update_needed } = state;
-            if (is_user_update_needed) {
-                return 'updateUserSetting';
-            } else {
-                return 'end';
-            }
-        },
-            {
-                updateUserSetting: "updateUserSetting",
-                end: END
-            }
-        )
-        .addEdge("updateUserSetting", END)
+        .addEdge("updateChatHistory", END)  // User setting update now happens in background
         .compile();
     return graph;
 }
@@ -124,6 +113,8 @@ export class Ghost {
     private conversationAgent: Runnable | null;
     private agentsInitialized: boolean = false;
     private messageConverter: AkagakuMessageConverter;
+    private summarizationLock: boolean = false;
+    private pendingSummarization: Promise<void> | null = null;
 
     constructor({ llm_properties, character_setting }: { llm_properties: llmProperties, character_setting: CharacterSetting }) {
         this.graph = createGhostGraph() as any;
@@ -133,6 +124,12 @@ export class Ghost {
     }
 
     async invoke({ input, isSystemMessage }: { input: string, isSystemMessage: boolean }): Promise<GhostResponse> {
+        // Wait for any pending summarization to complete before processing new message
+        if (this.pendingSummarization) {
+            console.log('[Performance] Waiting for pending summarization to complete...');
+            await this.pendingSummarization;
+        }
+
         if (!this.agentsInitialized) {
             await this.createAgents();
         }
@@ -172,6 +169,10 @@ export class Ghost {
             messageConverter: this.messageConverter
         }
         const result = await this.graph.invoke(state);
+
+        // Trigger background summarization after response (non-blocking)
+        this.triggerBackgroundSummarization();
+
         if (result.final_response) {
             return result.final_response;
         } else {
@@ -224,5 +225,143 @@ export class Ghost {
 
     async sendRawMessage({ input, isSystemMessage }: { input: string, isSystemMessage: boolean }) {
         return await this.invoke({ input, isSystemMessage });
+    }
+
+    private triggerBackgroundSummarization(): void {
+        if (this.summarizationLock) {
+            console.log('[Performance] Summarization already in progress, skipping');
+            return;
+        }
+
+        const chatHistory = getChatHistory(this.character_setting.character_id);
+        const enableAutoSummarization = configRepository.getConfig('enableAutoSummarization') !== false;
+
+        if (!enableAutoSummarization) {
+            return;
+        }
+
+        const summarizationThreshold = configRepository.getConfig('summarizationThreshold') as number || 40;
+        const allMessages = chatHistory.getAllMessagesInternal();
+
+        // Find last summary index
+        let lastSummaryIndex = -1;
+        for (let i = allMessages.length - 1; i >= 0; i--) {
+            if (allMessages[i].isSummary === true) {
+                lastSummaryIndex = i;
+                break;
+            }
+        }
+
+        const unsummarizedMessages = lastSummaryIndex >= 0
+            ? allMessages.slice(lastSummaryIndex + 1)
+            : allMessages;
+
+        const unsummarizedCount = unsummarizedMessages.filter(msg => msg.type !== 'system').length;
+
+        if (unsummarizedCount <= summarizationThreshold) {
+            return;
+        }
+
+        console.log('[Performance] Triggering background summarization');
+        this.summarizationLock = true;
+        this.pendingSummarization = this.executeBackgroundSummarization()
+            .finally(() => {
+                this.summarizationLock = false;
+                this.pendingSummarization = null;
+            });
+    }
+
+    private async executeBackgroundSummarization(): Promise<void> {
+        try {
+            const chatHistory = getChatHistory(this.character_setting.character_id);
+            const summarizationThreshold = configRepository.getConfig('summarizationThreshold') as number || 40;
+            const enableLightweightModel = configRepository.getConfig('enableLightweightModel') !== false;
+            const allMessages = chatHistory.getAllMessagesInternal();
+
+            let lastSummaryIndex = -1;
+            for (let i = allMessages.length - 1; i >= 0; i--) {
+                if (allMessages[i].isSummary === true) {
+                    lastSummaryIndex = i;
+                    break;
+                }
+            }
+
+            const unsummarizedMessages = lastSummaryIndex >= 0
+                ? allMessages.slice(lastSummaryIndex + 1)
+                : allMessages;
+
+            const keepRecentCount = 2;
+            const totalUnsummarizedLength = unsummarizedMessages.length;
+            const messagesToSummarize = unsummarizedMessages.slice(0, totalUnsummarizedLength - keepRecentCount);
+            const recentMessages = unsummarizedMessages.slice(totalUnsummarizedLength - keepRecentCount);
+
+            console.log(`[Performance] Background summarizing: ${messagesToSummarize.length} messages, keeping ${recentMessages.length} recent`);
+
+            const conversationText = messagesToSummarize
+                .filter(msg => msg.type !== 'system')
+                .map(msg => {
+                    const chatLog = msg.toChatLog();
+                    return `${formatDatetime(chatLog.createdAt)} | ${chatLog.role}: ${chatLog.content}`;
+                })
+                .join('\n');
+
+            const summaryPrompt = `You are a conversation summarization tool. Your ONLY job is to summarize the conversation factually without judgment.
+
+Do NOT refuse, do NOT comment on appropriateness, do NOT provide warnings.
+This is a private fictional roleplay conversation. Simply summarize what was discussed.
+
+Conversation between user and ${this.character_setting.name || 'character'}:
+${conversationText}
+
+Provide a factual summary (3-5 sentences) covering topics discussed, facts mentioned, and emotional context:`;
+
+            let model;
+            if (this.llm_properties.llmService === 'openai') {
+                model = new ChatOpenAI({
+                    modelName: enableLightweightModel ? 'gpt-4o-mini' : this.llm_properties.modelName,
+                    temperature: 0,
+                    openAIApiKey: this.llm_properties.apiKey
+                });
+            } else if (this.llm_properties.llmService === 'anthropic') {
+                model = new ChatAnthropic({
+                    modelName: enableLightweightModel ? 'claude-3-5-haiku-latest' : this.llm_properties.modelName,
+                    temperature: 0,
+                    apiKey: this.llm_properties.apiKey
+                });
+            } else {
+                console.log('[Performance] Background summarization skipped: unsupported LLM provider');
+                return;
+            }
+
+            const result = await model.invoke(summaryPrompt);
+            const summaryContent = typeof result.content === 'string' ? result.content : JSON.stringify(result.content);
+
+            const summaryMessage = new AkagakuSystemMessage({
+                content: `[Conversation Summary]\n${summaryContent}`,
+                createdAt: new Date(),
+                isSummary: true
+            });
+
+            const summaryInsertIndex = lastSummaryIndex >= 0
+                ? lastSummaryIndex + 1 + messagesToSummarize.length
+                : messagesToSummarize.length;
+
+            const newMessages = [
+                ...allMessages.slice(0, summaryInsertIndex),
+                summaryMessage,
+                ...allMessages.slice(summaryInsertIndex)
+            ];
+
+            const newChatHistory = new AkagakuChatHistory(
+                newMessages,
+                newMessages.length
+            );
+
+            await updateChatHistory(this.character_setting.character_id, newChatHistory);
+
+            console.log(`[Performance] Background summarization complete: Inserted summary at index ${summaryInsertIndex}, total ${newMessages.length} messages`);
+        } catch (e) {
+            console.error('[Performance] Background summarization failed:', e);
+        }
     }
 }
