@@ -71,42 +71,77 @@ async function executeUpdateUserSettingInBackground(state: GhostState): Promise<
         return;
     }
 
-    const currentUserSettingStr = JSON.stringify(state.user_setting, null, 2);
+    const currentUserProfile = typeof state.user_setting === 'string'
+        ? state.user_setting
+        : JSON.stringify(state.user_setting, null, 2);
 
-    const systemPrompt = `You're a helpful assistant that updates user's setting.
+    const chatHistoryStr = state.update_payload?.history.getMessages()
+        .map(message => message.toChatLog())
+        .map(chatLog => `${formatDatetime(chatLog.createdAt)} | ${chatLog.role}: ${chatLog.content}`)
+        .join('\n') || '';
 
-**CURRENT USER SETTING:**
-${currentUserSettingStr}
+    const systemPrompt = `You're a helpful assistant that updates user's profile.
 
-**IMPORTANT RULES:**
-1. ONLY update if NEW information is found in recent conversations
-2. USE EXISTING KEYS whenever possible (check current setting above)
-3. Call update_user_setting ONCE with ALL updates in keyValues array
-4. DO NOT create duplicate keys (e.g., if 'name' exists, don't create 'user_name')
-5. Preserve existing key names and structure
+**CURRENT USER PROFILE:**
+${currentUserProfile}
 
-**Recommended to update:**
-- name, age, location (only when user explicitly asked to remember), occupation, hobby
+**RECENT CHAT HISTORY:**
+${chatHistoryStr}
 
-**NOT recommended to update:**
-- affection_score, attitude, current_time, last_action, feelings, locale
+**TASK:**
+If you found NEW important information about the user in recent conversations,
+create an UPDATED complete user profile in markdown format.
 
-**Examples of CORRECT usage:**
-- If setting has 'name': Update with {key: 'name', value: 'John'}
-- Multiple updates: [{key: 'name', value: 'John'}, {key: 'age', value: '25'}]
+**STRICT CONSTRAINTS:**
+- Maximum 300 characters OR 15 lines (whichever is shorter)
+- Be CONCISE - only essential information
+- Replace the ENTIRE profile (not partial update)
+- Use markdown format with clear structure
 
-**Examples of WRONG usage:**
-- Creating 'user_name' when 'name' exists
-- Multiple tool calls for multiple updates
-- Updating with same value as current setting
+**Profile Structure:**
+# User Profile
 
-If nothing to update, just say "No update needed".
+**Name:** [name]
+**Birth Date:** [date]
+**Occupation:** [job]
+**Location:** [city/country]
+**Languages:** [languages]
+**Hobbies:** [hobbies]
+
+## Notes
+[Brief important notes only]
+
+**What to INCLUDE:**
+- Name, birth date, occupation, location
+- Languages, hobbies
+- Key facts user explicitly mentioned
+
+**What to EXCLUDE:**
+- Feelings, attitudes, affection scores
+- Temporary states, current actions
+- Conversation topics (unless user asked to remember)
+- Verbose descriptions
+
+**Decision:**
+- If NO new information: Say "No update needed"
+- If new information found: Call update_user_setting with complete updated profile
+
+**Example GOOD profile:**
+# User Profile
+
+**Name:** 이영종
+**Birth Date:** 1994-03-10
+**Occupation:** 백엔드 개발자
+**Location:** Seoul
+**Languages:** 한국어, 일본어, 영어
+**Hobbies:** 고양이 4마리 키우기
+
+## Notes
+Prefers minimal communication.
     `;
 
     const prompt = ChatPromptTemplate.fromMessages([
         ["system", systemPrompt],
-        ["placeholder", "{user_setting}"],
-        ["placeholder", "{chat_history}"],
         ["placeholder", "{agent_scratchpad}"],
     ]);
 
@@ -119,10 +154,7 @@ If nothing to update, just say "No update needed".
     });
 
     try {
-        const result = await executor.invoke({
-            user_setting: `user_setting = ${JSON.stringify(state.user_setting)}`,
-            chat_history: `chat_history = ${JSON.stringify(state.update_payload?.history.getMessages().map(message => message.toChatLog()).map(chatLog => `${formatDatetime(chatLog.createdAt)} | ${chatLog.role}: ${chatLog.content}`).join('\n'))}`
-        });
+        const result = await executor.invoke({});
         console.log('[UpdateUserSetting] Background update completed:', result.output || 'success');
     } catch (error) {
         console.error('[UpdateUserSetting] Background execution error:', error);

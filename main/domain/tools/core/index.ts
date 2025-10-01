@@ -32,18 +32,25 @@ const get_weather = new DynamicStructuredTool({
 
 export const update_user_info = new DynamicStructuredTool({
     name: "update_user_setting",
-    description: `Use this tool when you got new important information about user (such as user's name, age, etc.)`,
+    description: `Use this tool when you got new important information about user (such as user's name, age, etc.).
+You will provide the COMPLETE user profile in markdown format, replacing the entire previous content.`,
     schema: z.object({
-        keyValues: z.array(z.object({
-            key: z.string(),
-            value: z.string(),
-        })).describe("key-value pairs of user info to update"),
+        userProfile: z.string().describe("Complete user profile in markdown format (max 300 characters or 15 lines). Include: name, birth date, occupation, location, languages, hobbies, and brief notes."),
     }),
-    func: async ({ keyValues }) => {
-        for (const { key, value } of keyValues) {
-            await updateUserInfo(key, value);
+    func: async ({ userProfile }) => {
+        // Validate length constraints
+        const lines = userProfile.split('\n').length;
+        const chars = userProfile.length;
+
+        if (chars > 300) {
+            return `Error: Profile too long (${chars} chars, max 300). Please make it more concise.`;
         }
-        return "User info updated successfully. updated keys: " + keyValues.map(kv => kv.key).join(", ");
+        if (lines > 15) {
+            return `Error: Too many lines (${lines} lines, max 15). Please make it more concise.`;
+        }
+
+        await updateUserInfo('profile', userProfile);
+        return `User profile updated successfully. ${chars} characters, ${lines} lines.`;
     },
 });
 

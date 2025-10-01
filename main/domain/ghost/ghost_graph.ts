@@ -57,7 +57,6 @@ export const createGhostGraph = () => {
     const graph = new StateGraph(StateAnnotation)
         .addNode("tool", ToolNode)
         .addNode("updateChatHistory", UpdateChatHistoryNode)
-        .addNode("updateUserSetting", UpdateUserSettingNode)  // Kept for backward compatibility but not used
         .addNode("response", ResponseNode)
         .addConditionalEdges(START, (state) => {
             const { skipToolCall } = state;
