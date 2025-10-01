@@ -2,7 +2,14 @@ import { logger } from '../config/logger';
 import Store from 'electron-store'
 import { IRelationshipRepository } from 'main/domain/repositories/IRelationshipRepository';
 
-const relationshipStore = new Store({ name: 'relationship' });
+let relationshipStore: Store | null = null;
+
+const getRelationshipStore = (): Store => {
+    if (!relationshipStore) {
+        relationshipStore = new Store({ name: 'relationship' });
+    }
+    return relationshipStore;
+};
 
 // Start Generation Here
 export type Relationship = {
@@ -16,8 +23,8 @@ class ElectronStoreRelationshipRepository implements IRelationshipRepository {
 
     constructor() {
         this.character_relationships = (() => {
-            if (relationshipStore.has('relationship')) {
-                return relationshipStore.get('relationship') as Relationship[];
+            if (getRelationshipStore().has('relationship')) {
+                return getRelationshipStore().get('relationship') as Relationship[];
             } else {
                 return [];
             }
@@ -44,7 +51,7 @@ class ElectronStoreRelationshipRepository implements IRelationshipRepository {
         }
         character_relationship.affection_to_user = affection_to_user;
         character_relationship.attitude_to_user = attitude_to_user;
-        relationshipStore.set('relationship', this.character_relationships);
+        getRelationshipStore().set('relationship', this.character_relationships);
         return character_relationship;
     }
 }

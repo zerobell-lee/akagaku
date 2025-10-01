@@ -20,7 +20,7 @@ const getCurrentAttitude = (characterName: string, affection: Affection): Attitu
     return Attitude.create(attitudeString);
 }
 
-const convertContextInputs = (fieldName: string, input: any) => {
+const convertContextInputs = (fieldName: string, input: any): string => {
     // Optimized: Use compact string format instead of JSON.stringify
     if (Array.isArray(input)) {
         if (input.length === 0) return `${fieldName} = []`;
@@ -39,9 +39,16 @@ const convertContextInputs = (fieldName: string, input: any) => {
     }
 
     if (typeof input === 'object' && input !== null) {
-        // For objects, use compact key=value format
+        // For objects, use compact key=value format with proper nested array handling
         const entries = Object.entries(input);
-        return `${fieldName} = ${entries.map(([k, v]) => `${k}=${v}`).join(', ')}`;
+        return `${fieldName} = ${entries.map(([k, v]) => {
+            if (Array.isArray(v)) {
+                return `${k}=${v.join(',')}`;
+            } else if (typeof v === 'object' && v !== null) {
+                return `${k}=${JSON.stringify(v)}`;
+            }
+            return `${k}=${v}`;
+        }).join(', ')}`;
     }
 
     return `${fieldName} = ${input}`;

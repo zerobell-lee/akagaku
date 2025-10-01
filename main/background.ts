@@ -16,79 +16,22 @@ import { getChatHistory, chatHistoryRepository } from './infrastructure/chat/Cha
 
 const isProd = process.env.NODE_ENV === 'production'
 
+console.log('[DEBUG] NODE_ENV:', process.env.NODE_ENV);
+console.log('[DEBUG] isProd:', isProd);
+
 if (!isProd) {
   dotenv.config();
 }
 
 if (isProd) {
   serve({ directory: 'app' })
-} else {
-  app.setPath('userData', `${app.getPath('userData')} (development)`)
 }
 
-// Initialize config repository after setting userData path
-initConfigRepository();
-
-const openaiApiKey = configRepository.getConfig('openaiApiKey') || "";
-const anthropicApiKey = configRepository.getConfig('anthropicApiKey') || "";
-const customApiKey = configRepository.getConfig('customApiKey') || "";
-const customBaseURL = configRepository.getConfig('customBaseURL') || "";
-const llmProvider = configRepository.getConfig('llmProvider') || configRepository.getConfig('llmService') || "openai";
-const selectedModel = configRepository.getConfig('selectedModel') || "gpt-5";
-const temperature = configRepository.getConfig('temperature') || 1;
-const characterName = configRepository.getConfig('characterName') as string || "minkee";
-const displayScale = configRepository.getConfig('displayScale') as number || 0.5;
-const speechBubbleWidth = configRepository.getConfig('speechBubbleWidth') as number || 500;
-console.log('[DEBUG] displayScale loaded:', displayScale);
-console.log('[DEBUG] speechBubbleWidth loaded:', speechBubbleWidth);
-
-// LangSmith configuration
-const enableLangsmithTracing = configRepository.getConfig('enableLangsmithTracing') as boolean || false;
-const langsmithApiKey = configRepository.getConfig('langsmithApiKey') as string || "";
-const langsmithProjectName = configRepository.getConfig('langsmithProjectName') as string || "akagaku";
-
-if (enableLangsmithTracing && langsmithApiKey) {
-  process.env.LANGCHAIN_TRACING_V2 = "true";
-  process.env.LANGCHAIN_API_KEY = langsmithApiKey;
-  process.env.LANGCHAIN_PROJECT = langsmithProjectName;
-  console.log('[LangSmith] Tracing enabled for project:', langsmithProjectName);
-} else {
-  process.env.LANGCHAIN_TRACING_V2 = "false";
-  console.log('[LangSmith] Tracing disabled');
-}
-
-// Determine API key based on provider
-const getApiKeyForProvider = (provider: string): string => {
-  switch (provider) {
-    case 'openai':
-    case 'azure-openai':
-      return openaiApiKey;
-    case 'anthropic':
-      return anthropicApiKey;
-    case 'openrouter':
-    case 'aws-bedrock':
-    case 'google-vertex':
-    case 'custom':
-      return customApiKey || openaiApiKey;
-    default:
-      return openaiApiKey;
-  }
-};
-
-const ghost = new GhostService(
-  {
-    llm_properties: {
-      llmService: (llmProvider === 'openai' || llmProvider === 'anthropic') ? llmProvider : 'openai',
-      modelName: selectedModel as string,
-      apiKey: getApiKeyForProvider(llmProvider),
-      temperature: temperature as number,
-      baseURL: customBaseURL || undefined,
-    },
-    character_setting: CharacterSettingLoader.getCharacterSetting(characterName),
-  }
-)
-
-console.log("ghost", ghost);
+// Config and ghost will be initialized after app.whenReady()
+let ghost: GhostService;
+let characterName: string;
+let displayScale: number;
+let speechBubbleWidth: number;
 
 // Force device scale factor to 1.0 to prevent scaling issues on high-DPI displays
 // This ensures consistent rendering across all platforms (Windows, macOS Retina, Linux)
@@ -136,7 +79,82 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
 
 (async () => {
   await app.whenReady()
-  
+
+  // Set userData path after app is ready
+  if (!isProd) {
+    const devPath = `${app.getPath('userData')} (development)`;
+    console.log('[DEBUG] Setting userData to:', devPath);
+    app.setPath('userData', devPath);
+  }
+
+  console.log('[DEBUG] userData path:', app.getPath('userData'));
+
+  // Initialize config repository after setting userData path
+  initConfigRepository();
+
+  // Load config values
+  const openaiApiKey = configRepository.getConfig('openaiApiKey') || "";
+  const anthropicApiKey = configRepository.getConfig('anthropicApiKey') || "";
+  const customApiKey = configRepository.getConfig('customApiKey') || "";
+  const customBaseURL = configRepository.getConfig('customBaseURL') || "";
+  const llmProvider = configRepository.getConfig('llmProvider') || configRepository.getConfig('llmService') || "openai";
+  const selectedModel = configRepository.getConfig('selectedModel') || "gpt-5";
+  const temperature = configRepository.getConfig('temperature') || 1;
+  characterName = configRepository.getConfig('characterName') as string || "minkee";
+  displayScale = configRepository.getConfig('displayScale') as number || 0.5;
+  speechBubbleWidth = configRepository.getConfig('speechBubbleWidth') as number || 500;
+  console.log('[DEBUG] displayScale loaded:', displayScale);
+  console.log('[DEBUG] speechBubbleWidth loaded:', speechBubbleWidth);
+
+  // LangSmith configuration
+  const enableLangsmithTracing = configRepository.getConfig('enableLangsmithTracing') as boolean || false;
+  const langsmithApiKey = configRepository.getConfig('langsmithApiKey') as string || "";
+  const langsmithProjectName = configRepository.getConfig('langsmithProjectName') as string || "akagaku";
+
+  if (enableLangsmithTracing && langsmithApiKey) {
+    process.env.LANGCHAIN_TRACING_V2 = "true";
+    process.env.LANGCHAIN_API_KEY = langsmithApiKey;
+    process.env.LANGCHAIN_PROJECT = langsmithProjectName;
+    console.log('[LangSmith] Tracing enabled for project:', langsmithProjectName);
+  } else {
+    process.env.LANGCHAIN_TRACING_V2 = "false";
+    console.log('[LangSmith] Tracing disabled');
+  }
+
+  // Determine API key based on provider
+  const getApiKeyForProvider = (provider: string): string => {
+    switch (provider) {
+      case 'openai':
+      case 'azure-openai':
+        return openaiApiKey;
+      case 'anthropic':
+        return anthropicApiKey;
+      case 'openrouter':
+      case 'aws-bedrock':
+      case 'google-vertex':
+      case 'custom':
+        return customApiKey || openaiApiKey;
+      default:
+        return openaiApiKey;
+    }
+  };
+
+  // Initialize ghost service
+  ghost = new GhostService(
+    {
+      llm_properties: {
+        llmService: (llmProvider === 'openai' || llmProvider === 'anthropic') ? llmProvider : 'openai',
+        modelName: selectedModel as string,
+        apiKey: getApiKeyForProvider(llmProvider),
+        temperature: temperature as number,
+        baseURL: customBaseURL || undefined,
+      },
+      character_setting: CharacterSettingLoader.getCharacterSetting(characterName),
+    }
+  );
+
+  console.log("ghost", ghost);
+
   // macOS에서는 추가적인 초기화 시간이 필요할 수 있음
   if (process.platform === 'darwin') {
     await new Promise(resolve => setTimeout(resolve, 100))

@@ -4,7 +4,14 @@ import { AkagakuBaseMessage, AkagakuSystemMessage, AkagakuUserMessage, AkagakuCh
 import { parseDatetime } from '../utils/DatetimeStringUtils';
 import { IChatHistoryRepository } from 'main/domain/repositories/IChatHistoryRepository';
 
-const chatHistoryStore = new Store({ name: 'chat_history' });
+let chatHistoryStore: Store | null = null;
+
+const getChatHistoryStore = (): Store => {
+  if (!chatHistoryStore) {
+    chatHistoryStore = new Store({ name: 'chat_history' });
+  }
+  return chatHistoryStore;
+};
 
 export class AkagakuChatHistory {
   private messages: AkagakuBaseMessage[] = [];
@@ -71,7 +78,7 @@ class ElectronStoreChatHistoryRepository implements IChatHistoryRepository {
     let rawMessages: any[] = [];
     const windowSize = configRepository.getConfig("chatHistoryLimit") as number || 20;
     try {
-      const stored = chatHistoryStore.get(`${character_name}/chat_history.json`);
+      const stored = getChatHistoryStore().get(`${character_name}/chat_history.json`);
       rawMessages = Array.isArray(stored) ? stored : [];
     } catch (err) {
     }
@@ -112,27 +119,27 @@ class ElectronStoreChatHistoryRepository implements IChatHistoryRepository {
 
       // Save archived messages with timestamp
       const archiveKey = `${character_name}/archive_${Date.now()}.json`;
-      chatHistoryStore.set(archiveKey, toArchive);
+      getChatHistoryStore().set(archiveKey, toArchive);
 
       // Save recent messages to current file
-      chatHistoryStore.set(`${character_name}/chat_history.json`, toKeep);
+      getChatHistoryStore().set(`${character_name}/chat_history.json`, toKeep);
 
       console.log(`[Archive] Archived ${toArchive.length} messages to ${archiveKey}, keeping ${toKeep.length} recent messages`);
     } else {
-      chatHistoryStore.set(`${character_name}/chat_history.json`, allMessages);
+      getChatHistoryStore().set(`${character_name}/chat_history.json`, allMessages);
     }
   }
 
   getArchiveList(character_name: string): string[] {
     // Get all archive files for this character
-    const allKeys = Object.keys(chatHistoryStore.store);
+    const allKeys = Object.keys(getChatHistoryStore().store);
     const archivePattern = `${character_name}/archive_`;
     return allKeys.filter(key => key.startsWith(archivePattern)).sort().reverse();
   }
 
   getArchive(archiveKey: string): AkagakuBaseMessage[] {
     try {
-      const rawMessages = chatHistoryStore.get(archiveKey) as any[];
+      const rawMessages = getChatHistoryStore().get(archiveKey) as any[];
       if (!Array.isArray(rawMessages)) return [];
 
       return rawMessages.map(msg => {
@@ -158,7 +165,7 @@ class ElectronStoreChatHistoryRepository implements IChatHistoryRepository {
     // Load ALL messages but EXCLUDE summaries (for logs UI)
     let rawMessages: any[] = [];
     try {
-      const stored = chatHistoryStore.get(`${character_name}/chat_history.json`);
+      const stored = getChatHistoryStore().get(`${character_name}/chat_history.json`);
       rawMessages = Array.isArray(stored) ? stored : [];
     } catch (err) {
       console.error(`Failed to load messages for ${character_name}:`, err);
