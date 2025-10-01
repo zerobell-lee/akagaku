@@ -3,6 +3,7 @@ import { FaGear } from "react-icons/fa6";
 import { IoChatbubbleEllipses } from "react-icons/io5";
 import { ImExit } from "react-icons/im";
 import { TbLogs } from "react-icons/tb";
+import { MdOutlineMinimize } from "react-icons/md";
 export const OverlayMenu = () => {
     const openChatInput = () => {
         window.ipc.send('user-action', 'CHAT_OPENED')
@@ -42,6 +43,9 @@ export const OverlayMenu = () => {
                 </div>
                 <div className="flex gap-2 w-full cursor-pointer" onClick={() => window.ipc.send('user-action', 'OPEN_CONFIG')}>
                     <FaGear style={{ width: '30px', height: '30px', fill: 'white' }} />
+                </div>
+                <div className="flex gap-2 w-full cursor-pointer" onClick={() => window.ipc.send('user-action', 'MOVE_TO_TRAY')}>
+                    <MdOutlineMinimize style={{ width: '30px', height: '30px', fill: 'white' }} />
                 </div>
                 <div className="flex gap-2 w-full cursor-pointer" onClick={() => window.ipc.send('user-action', 'APP_QUIT')}>
                     <ImExit style={{ width: '30px', height: '30px', fill: 'white' }} />

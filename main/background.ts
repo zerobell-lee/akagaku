@@ -1,5 +1,5 @@
 import path from 'path'
-import { app, BrowserWindow, dialog, ipcMain, protocol, screen, Tray } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, protocol, screen, Tray, nativeImage } from 'electron'
 import serve from 'electron-serve'
 import { createWindow } from './helpers'
 import { GhostService } from './infrastructure/ghost/GhostService'
@@ -226,15 +226,44 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     app.focus()
   }
 
-  // Tray 아이콘 설정 (macOS에서는 .ico 파일이 지원되지 않을 수 있음)
+  // Tray icon setup with platform-specific handling
+  let tray: Tray | null = null;
+  let isGhostHidden = false;
+
   try {
-    const tray = new Tray(path.join(__dirname, '../resources/icon.ico'))
-    tray.setToolTip('Akagaku')
+    // macOS and Windows handle tray icons differently
+    // For now, use the existing icon files
+    // TODO: User needs to add a proper 16x16 or 32x32 PNG for macOS tray
+    const iconPath = process.platform === 'darwin'
+      ? path.join(__dirname, '../resources/icon.icns')
+      : path.join(__dirname, '../resources/icon.ico');
+
+    tray = new Tray(iconPath);
+    tray.setToolTip('Akagaku - Desktop Character');
+
     tray.on('click', () => {
-      mainWindow.show()
-    })
+      if (isGhostHidden) {
+        // Show ghost and activate tray trigger
+        console.log('[Tray] Ghost activated from tray');
+        mainWindow.show();
+        isGhostHidden = false;
+
+        // Activate tray trigger
+        const trayTrigger = triggerManager.getTrigger('tray-activation');
+        if (trayTrigger && 'activate' in trayTrigger) {
+          (trayTrigger as any).activate();
+          // Force immediate trigger check
+          triggerManager.checkTriggers();
+        }
+      } else {
+        // Just show window if not hidden
+        mainWindow.show();
+      }
+    });
+
+    console.log('[Tray] Tray icon initialized');
   } catch (error) {
-    console.warn('Tray icon could not be loaded:', error)
+    console.warn('[Tray] Tray icon could not be loaded:', error);
   }
 
   // Initialize UserActionHandler
@@ -324,13 +353,8 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     console.log('[Streaming] Stream completed for character:', characterId);
     userActionHandler.setStreamHasStarted(false);
 
-    // If app is exiting, quit after streaming completes
-    if (userActionHandler.getIsAppExiting()) {
-      console.log('[App Exit] Streaming complete, quitting in 5 seconds');
-      setTimeout(() => {
-        app.quit();
-      }, 5000);
-    }
+    // If app is exiting, let DISPLAY_TEXT_COMPLETE handle the quit timing
+    // This ensures the UI has time to display the complete message
   });
 
   streamingEvents.on('stream-error', ({ characterId, error }) => {
@@ -348,6 +372,10 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
 
   // User action IPC handler - delegate to UserActionHandler
   ipcMain.on('user-action', async (event, arg) => {
+    // Update ghost hidden state when moving to tray
+    if (arg === 'MOVE_TO_TRAY') {
+      isGhostHidden = true;
+    }
     await userActionHandler.handleAction(arg);
   })
 

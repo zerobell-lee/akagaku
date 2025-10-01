@@ -1,6 +1,7 @@
 import Store from 'electron-store';
 import { IntervalTrigger } from '../../domain/triggers/IntervalTrigger';
 import { TimeTrigger, TimeSlot } from '../../domain/triggers/TimeTrigger';
+import { TrayActivationTrigger } from '../../domain/triggers/TrayActivationTrigger';
 import { Trigger } from '../../domain/triggers/Trigger';
 
 /**
@@ -115,12 +116,33 @@ export class TriggerRegistry {
     timeTrigger.enabled = timeConfig.enabled;
     triggers.push(timeTrigger);
 
+    // Create tray activation trigger
+    const trayConfig = configs['tray-activation'] || {
+      enabled: true,
+      cooldownMs: 60 * 1000, // 1 minute cooldown
+      messages: [
+        'User just brought you back from the tray icon. Express relief or comment about being cramped. Don\'t use any tools.'
+      ],
+      priority: 80
+    };
+
+    const trayTrigger = new TrayActivationTrigger({
+      id: 'tray-activation',
+      name: 'Tray Activation',
+      ...trayConfig
+    });
+    trayTrigger.enabled = trayConfig.enabled;
+    triggers.push(trayTrigger);
+
     // Save default configs if not exist
     if (!configs['interval-idle']) {
       this.saveTriggerConfig('interval-idle', intervalConfig);
     }
     if (!configs['time-midnight']) {
       this.saveTriggerConfig('time-midnight', timeConfig);
+    }
+    if (!configs['tray-activation']) {
+      this.saveTriggerConfig('tray-activation', trayConfig);
     }
 
     console.log(`[TriggerRegistry] Created ${triggers.length} default triggers`);

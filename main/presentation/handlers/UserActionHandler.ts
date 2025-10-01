@@ -214,19 +214,15 @@ export class UserActionHandler {
       return;
     }
     this.isAppExiting = true;
-    this.streamHasStarted = false;
+    // Don't reset streamHasStarted - it will be managed by streaming events
 
     await this.sendGhostMessage((g) => g.sayGoodbye());
 
-    // Quit after 10 seconds if streaming hasn't started
+    // Safety timeout: quit after 15 seconds no matter what
     this.appExitTimeout = setTimeout(() => {
-      if (!this.streamHasStarted) {
-        console.log('[App Exit] Streaming did not start within 10s, force quitting');
-        require('electron').app.quit();
-      } else {
-        console.log('[App Exit] Streaming started, waiting for completion');
-      }
-    }, 10000);
+      console.log('[App Exit] Safety timeout reached (15s), force quitting');
+      require('electron').app.quit();
+    }, 15000);
   }
 
   /**
@@ -390,6 +386,16 @@ export class UserActionHandler {
   }
 
   /**
+   * Handle MOVE_TO_TRAY action
+   * Hides the ghost window and shows it in tray
+   */
+  async handleMoveToTray(): Promise<void> {
+    console.log('[UserActionHandler] Moving ghost to tray');
+    this.mainWindow.hide();
+    // isGhostHidden state is tracked in background.ts
+  }
+
+  /**
    * Main action handler dispatcher
    * Routes actions to appropriate handler methods
    */
@@ -438,6 +444,9 @@ export class UserActionHandler {
         break;
       case 'LOAD_ARCHIVE':
         await this.handleLoadArchive();
+        break;
+      case 'MOVE_TO_TRAY':
+        await this.handleMoveToTray();
         break;
       default:
         console.warn('[UserActionHandler] Unknown action:', action);
