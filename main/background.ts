@@ -274,11 +274,27 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
   streamingEvents.on('stream-complete', ({ characterId }) => {
     console.log('[Streaming] Stream completed for character:', characterId);
     streamHasStarted = false;
+
+    // If app is exiting, quit after streaming completes
+    if (isAppExiting) {
+      console.log('[App Exit] Streaming complete, quitting in 2 seconds');
+      setTimeout(() => {
+        app.quit();
+      }, 2000);
+    }
   });
 
   streamingEvents.on('stream-error', ({ characterId, error }) => {
     console.error('[Streaming] Stream error for character:', characterId, error);
     streamHasStarted = false;
+
+    // If app is exiting and stream errored, quit immediately
+    if (isAppExiting) {
+      console.log('[App Exit] Streaming error, quitting in 1 second');
+      setTimeout(() => {
+        app.quit();
+      }, 1000);
+    }
   });
 
   const sendGhostMessage = async (messageBlock: (ghost: Ghost) => Promise<GhostResponse>) => {
