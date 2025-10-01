@@ -52,13 +52,14 @@ export class AIResponseParser {
      * Try to parse Markdown format response
      * Format:
      * EMOTICON: neutral
-     * AFFECTION: 0
+     * ADD_AFFECTION: 0
      * MESSAGE:
      * Your response text
      */
     private tryParseMarkdown(content: string): GhostResponse | null {
         const emoticonMatch = content.match(/EMOTICON:\s*(\w+)/i);
-        const affectionMatch = content.match(/AFFECTION:\s*(-?\d+)/i);
+        // Support both ADD_AFFECTION (new) and AFFECTION (legacy) for backward compatibility
+        const affectionMatch = content.match(/ADD_AFFECTION:\s*(-?\d+)/i) || content.match(/AFFECTION:\s*(-?\d+)/i);
         const messageMatch = content.match(/MESSAGE:\s*\n?([\s\S]+)/i);
 
         if (!emoticonMatch || !affectionMatch || !messageMatch) {
