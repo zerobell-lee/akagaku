@@ -76,6 +76,10 @@ export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>(
         let newMessage = createMessageFromUserInput(userInput, sentAt)
         let langchainChatHistory: BaseMessage[] = chat_history.getMessages().map((message) => messageConverter.convertToLangChainMessage(message));
 
+        // Add current message to chat_history (will be properly formatted by messageConverter)
+        const currentMessageAsLangChain = messageConverter.convertToLangChainMessage(newMessage);
+        langchainChatHistory.push(currentMessageAsLangChain);
+
         // Optimized: Only send essential character_setting fields to reduce token usage
         const essentialCharacterSetting = {
             name: character_setting.name || character_setting.character_name,
@@ -85,10 +89,9 @@ export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>(
         };
 
         const payload = {
-            input: newMessage.content as string,
             character_setting: convertContextInputs('Character', essentialCharacterSetting),
             user_setting: convertContextInputs('User', user_setting),
-            chat_history: langchainChatHistory,  // Pass as BaseMessage[] directly
+            chat_history: langchainChatHistory,
             available_emoticon: `Available emoticons: ${character_setting.available_emoticon || '["neutral"]'}`,
             relationship: convertContextInputs('Relationship', relationship.toRaw()),
             current_appearance: `Current appearance: ${state.currentSkinDescription}`,

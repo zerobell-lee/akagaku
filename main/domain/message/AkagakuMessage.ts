@@ -120,8 +120,8 @@ export class AkagakuMessageConverter {
         } else if (message.type === 'system') {
             if (this.llmService === 'anthropic') {
                 // Anthropic doesn't support system messages mid-conversation
-                // Prefix content with [System: ...] to indicate system context
-                const systemPrefixedContent = `${formatDatetime(message.createdAt)}|[System] ${content}`
+                // Use strong markers to indicate system context
+                const systemPrefixedContent = `${formatDatetime(message.createdAt)}|[SYSTEM MESSAGE - INTERNAL NOTIFICATION]\n${content}\n[END SYSTEM MESSAGE]`
                 return new HumanMessage(systemPrefixedContent)
             }
             return new SystemMessage(formattedMessageContent)

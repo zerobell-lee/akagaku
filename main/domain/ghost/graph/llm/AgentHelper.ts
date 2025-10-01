@@ -104,7 +104,6 @@ export const createAgentForConversation = async (llmProperties: llmProperties, s
 
 {tool_call_result}`],
             ["placeholder", "{chat_history}"],
-            ["human", "{input}"],
         ]);
 
     return prompt.pipe(model).withConfig({ runName: "ghost" });
