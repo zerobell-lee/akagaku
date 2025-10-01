@@ -142,6 +142,7 @@ Prefers minimal communication.
 
     const prompt = ChatPromptTemplate.fromMessages([
         ["system", systemPrompt],
+        ["human", "Review the current user profile and recent chat history. If you found new important information, update the profile. Otherwise, say 'No update needed'."],
         ["placeholder", "{agent_scratchpad}"],
     ]);
 
@@ -154,7 +155,9 @@ Prefers minimal communication.
     });
 
     try {
-        const result = await executor.invoke({});
+        const result = await executor.invoke({
+            agent_scratchpad: []
+        });
         console.log('[UpdateUserSetting] Background update completed:', result.output || 'success');
     } catch (error) {
         console.error('[UpdateUserSetting] Background execution error:', error);

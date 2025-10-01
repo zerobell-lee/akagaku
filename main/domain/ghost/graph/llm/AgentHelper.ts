@@ -8,6 +8,7 @@ import { AgentExecutor } from "langchain/agents";
 import { Runnable } from "@langchain/core/runnables";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatAnthropic } from "@langchain/anthropic";
+import { ToolRegistry } from "main/domain/services/ToolRegistry";
 
 const getLlmModel = async (llmProperties: llmProperties): Promise<BaseChatModel> => {
     const { llmService, modelName, apiKey, temperature, baseURL } = llmProperties;
@@ -38,7 +39,7 @@ const getLlmModel = async (llmProperties: llmProperties): Promise<BaseChatModel>
     return model;
 }
 
-export const createAgentForTool = async (llmProperties: llmProperties, toolPrompt: string): Promise<Runnable> => {
+export const createAgentForTool = async (llmProperties: llmProperties, toolPrompt: string, toolRegistry: ToolRegistry | null = null): Promise<Runnable> => {
     let newLlmProperties = llmProperties;
     if (llmProperties.llmService === 'anthropic') {
         newLlmProperties = {
@@ -70,10 +71,13 @@ export const createAgentForTool = async (llmProperties: llmProperties, toolPromp
         return null
     }
 
-    const agent = createToolCallingAgent({ llm: model, tools: core_tools, prompt: prompt });
+    // Use ToolRegistry if available, otherwise fallback to core_tools
+    const tools = toolRegistry ? toolRegistry.getActiveLangChainTools() : core_tools;
+
+    const agent = createToolCallingAgent({ llm: model, tools: tools, prompt: prompt });
     const executor = new AgentExecutor({
         agent: agent,
-        tools: core_tools,
+        tools: tools,
         returnIntermediateSteps: true,
     }).withConfig({
         runName: "ghost-tool"

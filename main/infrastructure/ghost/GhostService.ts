@@ -2,6 +2,7 @@ import { GhostResponse, LLMService } from "@shared/types";
 import { CharacterSetting } from "main/infrastructure/character/CharacterRepository";
 import { llmProperties } from "main/domain/ghost/graph/states";
 import { Ghost } from "main/domain/ghost/ghost_graph";
+import { ToolRegistry } from "main/domain/services/ToolRegistry";
 
 /**
  * GhostService - Infrastructure layer service for character conversation
@@ -15,12 +16,13 @@ import { Ghost } from "main/domain/ghost/ghost_graph";
 export class GhostService {
     private ghost: Ghost;
 
-    constructor({ llm_properties, character_setting }: {
+    constructor({ llm_properties, character_setting, toolRegistry }: {
         llm_properties: llmProperties,
-        character_setting: CharacterSetting
+        character_setting: CharacterSetting,
+        toolRegistry?: ToolRegistry
     }) {
         // Delegate to the existing Ghost implementation
-        this.ghost = new Ghost({ llm_properties, character_setting });
+        this.ghost = new Ghost({ llm_properties, character_setting, toolRegistry });
     }
 
     async invoke({ input, isSystemMessage }: {

@@ -176,6 +176,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
         baseURL: customBaseURL || undefined,
       },
       character_setting: CharacterSettingLoader.getCharacterSetting(characterName),
+      toolRegistry: toolRegistry,
     }
   );
 
@@ -605,6 +606,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     }
 
     // Save tool configurations
+    let toolConfigChanged = false;
     if (toolConfigs) {
       toolConfigRepository.saveAllToolConfigs(toolConfigs);
 
@@ -614,9 +616,10 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
       });
 
       console.log('[ToolRegistry] Updated with new configs. Enabled tools:', toolRegistry.getEnabledToolIds());
+      toolConfigChanged = true;
     }
 
-    if (updateRequired) {
+    if (updateRequired || toolConfigChanged) {
       ghost.updateExecuter({ openaiApiKey: openaiApiKey, anthropicApiKey: anthropicApiKey, llmService: llmService as 'openai' | 'anthropic', modelName: selectedModel, temperature: temperature });
     }
   })

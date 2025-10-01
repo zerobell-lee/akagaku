@@ -20,6 +20,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { AkagakuSystemMessage } from "../message/AkagakuMessage";
 import { formatDatetime } from "main/infrastructure/utils/DatetimeStringUtils";
+import { ToolRegistry } from "../services/ToolRegistry";
 
 export const createGhostGraph = () => {
     const StateAnnotation = Annotation.Root({
@@ -114,12 +115,14 @@ export class Ghost {
     private messageConverter: AkagakuMessageConverter;
     private summarizationLock: boolean = false;
     private pendingSummarization: Promise<void> | null = null;
+    private toolRegistry: ToolRegistry | null = null;
 
-    constructor({ llm_properties, character_setting }: { llm_properties: llmProperties, character_setting: CharacterSetting }) {
+    constructor({ llm_properties, character_setting, toolRegistry }: { llm_properties: llmProperties, character_setting: CharacterSetting, toolRegistry?: ToolRegistry }) {
         this.graph = createGhostGraph() as any;
         this.llm_properties = llm_properties;
         this.character_setting = character_setting;
         this.conversation_count = 0;
+        this.toolRegistry = toolRegistry || null;
     }
 
     async invoke({ input, isSystemMessage }: { input: string, isSystemMessage: boolean }): Promise<GhostResponse> {
@@ -192,7 +195,7 @@ export class Ghost {
     private async createAgents() {
         const promptForTool = loadToolPrompt();
         const promptForCharacter = loadSystemPrompt(this.llm_properties.llmService);
-        this.toolAgent = await createAgentForTool(this.llm_properties, promptForTool);
+        this.toolAgent = await createAgentForTool(this.llm_properties, promptForTool, this.toolRegistry);
         this.conversationAgent = await createAgentForConversation(this.llm_properties, promptForCharacter);
         this.agentsInitialized = true;
         this.messageConverter = new AkagakuMessageConverter(this.llm_properties.llmService);
