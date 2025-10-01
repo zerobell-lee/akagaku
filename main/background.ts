@@ -239,6 +239,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
   let logsWindow: BrowserWindow | null = null;
 
   let ghostIsProcessingMessage = false;
+  let streamHasStarted = false;
 
   let startMouse = null;
   let startWindow: { x: number, y: number } | null = null;
@@ -250,6 +251,15 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
   // Setup streaming event listeners
   streamingEvents.on('stream-start', ({ characterId }) => {
     console.log('[Streaming] Stream started for character:', characterId);
+    streamHasStarted = true;
+
+    // Clear app exit timeout since streaming has started
+    if (appExitTimeout && isAppExiting) {
+      console.log('[App Exit] Stream started, clearing exit timeout');
+      clearTimeout(appExitTimeout);
+      appExitTimeout = null;
+    }
+
     if (speechBubbleWindow) {
       speechBubbleWindow.webContents.send('ghost-message-start-stream');
     }
@@ -263,10 +273,12 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
 
   streamingEvents.on('stream-complete', ({ characterId }) => {
     console.log('[Streaming] Stream completed for character:', characterId);
+    streamHasStarted = false;
   });
 
   streamingEvents.on('stream-error', ({ characterId, error }) => {
     console.error('[Streaming] Stream error for character:', characterId, error);
+    streamHasStarted = false;
   });
 
   const sendGhostMessage = async (messageBlock: (ghost: Ghost) => Promise<GhostResponse>) => {
@@ -395,10 +407,19 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
         return;
       }
       isAppExiting = true;
+      streamHasStarted = false; // Reset streaming state
       sendGhostMessage((g) => g.sayGoodbye())
+
+      // Quit after 3 seconds if streaming hasn't started
       appExitTimeout = setTimeout(() => {
-        app.quit()
-      }, 6000)
+        if (!streamHasStarted) {
+          console.log('[App Exit] Streaming did not start within 3s, force quitting');
+          app.quit();
+        } else {
+          console.log('[App Exit] Streaming started, waiting for completion');
+          // If streaming started, wait for it to complete
+        }
+      }, 3000)
     }
     else if (arg === 'BUBBLE_CLOSED') {
       if (isSpeechBubbleOpen() && !ghostIsProcessingMessage) {

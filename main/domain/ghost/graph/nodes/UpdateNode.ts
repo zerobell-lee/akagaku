@@ -80,69 +80,35 @@ async function executeUpdateUserSettingInBackground(state: GhostState): Promise<
         .map(chatLog => `${formatDatetime(chatLog.createdAt)} | ${chatLog.role}: ${chatLog.content}`)
         .join('\n') || '';
 
-    const systemPrompt = `You're a helpful assistant that updates user's profile.
+    const systemPrompt = `Update user profile ONLY if new info found. Max 300 chars/15 lines.
 
-**CURRENT USER PROFILE:**
+CURRENT PROFILE:
 ${currentUserProfile}
 
-**RECENT CHAT HISTORY:**
+RECENT CHAT:
 ${chatHistoryStr}
 
-**TASK:**
-If you found NEW important information about the user in recent conversations,
-create an UPDATED complete user profile in markdown format.
+INSTRUCTIONS:
+- NEW info → call update_user_setting tool
+- NO new info → respond "No update needed" (nothing else)
+- DO NOT explain, apologize, or add commentary
+- Profile must include: name, birth date, occupation, location, languages, hobbies
 
-**STRICT CONSTRAINTS:**
-- Maximum 300 characters OR 15 lines (whichever is shorter)
-- Be CONCISE - only essential information
-- Replace the ENTIRE profile (not partial update)
-- Use markdown format with clear structure
-
-**Profile Structure:**
+Example:
 # User Profile
-
-**Name:** [name]
-**Birth Date:** [date]
-**Occupation:** [job]
-**Location:** [city/country]
-**Languages:** [languages]
-**Hobbies:** [hobbies]
-
-## Notes
-[Brief important notes only]
-
-**What to INCLUDE:**
-- Name, birth date, occupation, location
-- Languages, hobbies
-- Key facts user explicitly mentioned
-
-**What to EXCLUDE:**
-- Feelings, attitudes, affection scores
-- Temporary states, current actions
-- Conversation topics (unless user asked to remember)
-- Verbose descriptions
-
-**Decision:**
-- If NO new information: Say "No update needed"
-- If new information found: Call update_user_setting with complete updated profile
-
-**Example GOOD profile:**
-# User Profile
-
 **Name:** 이영종
 **Birth Date:** 1994-03-10
 **Occupation:** 백엔드 개발자
 **Location:** Seoul
 **Languages:** 한국어, 일본어, 영어
-**Hobbies:** 고양이 4마리 키우기
+**Hobbies:** 고양이 키우기
 
 ## Notes
-Prefers minimal communication.
-    `;
+Minimal communication.`;
 
     const prompt = ChatPromptTemplate.fromMessages([
         ["system", systemPrompt],
-        ["human", "Review the current user profile and recent chat history. If you found new important information, update the profile. Otherwise, say 'No update needed'."],
+        ["human", "Check for new info. Call tool or say 'No update needed'."],
         ["placeholder", "{agent_scratchpad}"],
     ]);
 
