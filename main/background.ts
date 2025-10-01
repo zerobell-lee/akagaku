@@ -709,7 +709,31 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     logsWindow?.webContents.send('receive_archive_logs', chatLogs)
   })
 
+  // Debounce state for duplicate message prevention
+  let lastMessageHash = '';
+  let lastMessageTime = 0;
+  const DEBOUNCE_MS = 300; // 300ms debounce window
+
   ipcMain.on('user-message', async (event, message: UserInput) => {
+    // Create hash from message content
+    const messageHash = `${message.input}-${message.isSystemMessage}`;
+    const now = Date.now();
+
+    // Ignore duplicate messages within debounce window
+    if (messageHash === lastMessageHash && (now - lastMessageTime) < DEBOUNCE_MS) {
+      console.log('[IPC] Duplicate message ignored (debounce):', message.input.substring(0, 50));
+      return;
+    }
+
+    // Ignore if already processing a message
+    if (ghostIsProcessingMessage) {
+      console.log('[IPC] Message ignored (already processing):', message.input.substring(0, 50));
+      return;
+    }
+
+    lastMessageHash = messageHash;
+    lastMessageTime = now;
+
     sendGhostMessage((g) => g.sendRawMessage(message))
     userChatInputWindow?.close()
   })
