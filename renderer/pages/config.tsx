@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { Toast } from "../components/Toast";
 import { SecretInput } from "renderer/components/SecretInput";
-import { ConfigResponse, LLMProvider, RecommendedModelsType } from "@shared/types";
+import { ToolConfigEditor } from "renderer/components/ToolConfigEditor";
+import { ConfigResponse, LLMProvider, RecommendedModelsType, ToolConfig } from "@shared/types";
 
 // Recommended models by provider (client-side constant)
 const RECOMMENDED_MODELS: RecommendedModelsType = {
@@ -59,6 +60,10 @@ export default function Config() {
     // Legacy support - map old llmService to new provider
     const [llmService, setLlmService] = useState<'openai' | 'anthropic'>('openai');
 
+    // Tool configurations
+    const [toolConfigs, setToolConfigs] = useState<Record<string, ToolConfig>>({});
+    const [availableTools, setAvailableTools] = useState<any[]>([]);
+
     const saveConfig = () => {
         const finalModelName = useCustomModel ? customModelInput : modelName;
 
@@ -91,6 +96,8 @@ export default function Config() {
             speechBubbleFontFamily,
             speechBubbleFontSize,
             speechBubbleCustomCSS,
+            // Tool configurations
+            toolConfigs,
         });
         setToastMessage('Config saved!');
     }
@@ -135,6 +142,9 @@ export default function Config() {
         setSpeechBubbleFontSize(response.speechBubbleFontSize || 16);
         setSpeechBubbleCustomCSS(response.speechBubbleCustomCSS || '');
 
+        // Tool configurations
+        setToolConfigs(response.toolConfigs || {});
+
         setIsLoading(false);
     }
 
@@ -178,6 +188,11 @@ export default function Config() {
         // Load system fonts
         window.ipc.invoke('get-system-fonts').then((fonts: string[]) => {
             setSystemFonts(fonts);
+        });
+
+        // Load available tools
+        window.ipc.invoke('get-available-tools').then((tools: any[]) => {
+            setAvailableTools(tools);
         });
     }, []);
 
@@ -440,27 +455,75 @@ export default function Config() {
         </div>
     );
 
-    const renderToolsTab = () => (
-        <div className="space-y-4">
-            {/* OpenWeatherMap API Key */}
-            <label className="flex flex-col gap-2">
-                <span className="text-2xl">OpenWeatherMap API Key</span>
-                <SecretInput value={openweathermapApiKey} onChange={(value) => setOpenweathermapApiKey(value)} />
-                <span className="text-sm text-gray-400">
-                    Required for weather-related features
-                </span>
-            </label>
+    const renderToolsTab = () => {
+        const groupedTools = availableTools.reduce((acc, tool) => {
+            if (!acc[tool.category]) {
+                acc[tool.category] = [];
+            }
+            acc[tool.category].push(tool);
+            return acc;
+        }, {} as Record<string, any[]>);
 
-            {/* CoinMarketCap API Key */}
-            <label className="flex flex-col gap-2">
-                <span className="text-2xl">CoinMarketCap API Key</span>
-                <SecretInput value={coinmarketcapApiKey} onChange={(value) => setCoinmarketcapApiKey(value)} />
-                <span className="text-sm text-gray-400">
-                    Required for cryptocurrency price information
-                </span>
-            </label>
-        </div>
-    );
+        return (
+            <div className="space-y-4">
+                <div className="bg-gray-700/50 rounded-lg p-4 mb-4">
+                    <p className="text-sm text-gray-300">
+                        Enable the tools you want to use. Each tool may require additional configuration.
+                    </p>
+                </div>
+
+                {Object.entries(groupedTools).map(([category, tools]) => (
+                    <div key={category} className="border-b border-gray-700 pb-4">
+                        <h3 className="text-lg font-semibold mb-3 capitalize">{category} Tools</h3>
+
+                        {tools.map(tool => {
+                            const config = toolConfigs[tool.id] || { enabled: false, settings: {} };
+
+                            return (
+                                <div key={tool.id} className="mb-4">
+                                    {/* Tool Enable Checkbox */}
+                                    <label className="flex items-center gap-3 py-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={config.enabled}
+                                            onChange={(e) => {
+                                                setToolConfigs({
+                                                    ...toolConfigs,
+                                                    [tool.id]: {
+                                                        enabled: e.target.checked,
+                                                        settings: config.settings
+                                                    }
+                                                });
+                                            }}
+                                            className="w-5 h-5"
+                                        />
+                                        <div className="flex flex-col flex-1">
+                                            <span className="text-lg">{tool.name}</span>
+                                            <span className="text-sm text-gray-400">{tool.description}</span>
+                                        </div>
+                                    </label>
+
+                                    {/* Tool Config Editor (shown when enabled and has config fields) */}
+                                    {config.enabled && tool.configFields.length > 0 && (
+                                        <ToolConfigEditor
+                                            metadata={tool}
+                                            config={config}
+                                            onChange={(newConfig) => {
+                                                setToolConfigs({
+                                                    ...toolConfigs,
+                                                    [tool.id]: newConfig
+                                                });
+                                            }}
+                                        />
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                ))}
+            </div>
+        );
+    };
 
     const renderDisplayTab = () => (
         <div className="space-y-4">

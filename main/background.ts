@@ -9,6 +9,14 @@ import fs from 'fs'
 import { CharacterAppearance, CharacterProperties, UserInput, GhostResponse } from '@shared/types'
 import dotenv from 'dotenv'
 import { getChatHistory, chatHistoryRepository } from './infrastructure/chat/ChatHistoryRepository'
+import { ToolRegistry } from './domain/services/ToolRegistry'
+import { ToolConfigRepository } from './infrastructure/tools/ToolConfigRepository'
+import { WeatherToolMetadata, createWeatherTool } from './domain/tools/definitions/WeatherTool'
+import { CryptoToolMetadata, createCryptoTool } from './domain/tools/definitions/CryptoTool'
+import { UserInfoToolMetadata, createUserInfoTool } from './domain/tools/definitions/UserTool'
+import { OpenUrlToolMetadata, createOpenUrlTool, BookmarksToolMetadata, createBookmarksTool } from './domain/tools/definitions/BrowserTool'
+import { InstalledAppsToolMetadata, createInstalledAppsTool, OpenAppToolMetadata, createOpenAppTool } from './domain/tools/definitions/AppTool'
+import { ScheduleToolMetadata, createScheduleTool } from './domain/tools/definitions/ScheduleTool'
 
 
 // app.commandLine.appendSwitch('high-dpi-support', '1');
@@ -32,6 +40,8 @@ let ghost: GhostService;
 let characterName: string;
 let displayScale: number;
 let speechBubbleWidth: number;
+let toolRegistry: ToolRegistry;
+let toolConfigRepository: ToolConfigRepository;
 
 // Force device scale factor to 1.0 to prevent scaling issues on high-DPI displays
 // This ensures consistent rendering across all platforms (Windows, macOS Retina, Linux)
@@ -91,6 +101,22 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
 
   // Initialize config repository after setting userData path
   initConfigRepository();
+
+  // Initialize tool registry
+  toolRegistry = new ToolRegistry();
+  toolConfigRepository = new ToolConfigRepository();
+
+  // Register all tools with their factories
+  toolRegistry.registerTool(WeatherToolMetadata, toolConfigRepository.getToolConfig('get_weather'), createWeatherTool);
+  toolRegistry.registerTool(CryptoToolMetadata, toolConfigRepository.getToolConfig('get_crypto_price'), createCryptoTool);
+  toolRegistry.registerTool(UserInfoToolMetadata, toolConfigRepository.getToolConfig('get_user_info'), createUserInfoTool);
+  toolRegistry.registerTool(OpenUrlToolMetadata, toolConfigRepository.getToolConfig('open_url'), createOpenUrlTool);
+  toolRegistry.registerTool(BookmarksToolMetadata, toolConfigRepository.getToolConfig('get_bookmarks'), createBookmarksTool);
+  toolRegistry.registerTool(InstalledAppsToolMetadata, toolConfigRepository.getToolConfig('get_installed_apps'), createInstalledAppsTool);
+  toolRegistry.registerTool(OpenAppToolMetadata, toolConfigRepository.getToolConfig('open_app'), createOpenAppTool);
+  toolRegistry.registerTool(ScheduleToolMetadata, toolConfigRepository.getToolConfig('get_schedule'), createScheduleTool);
+
+  console.log('[ToolRegistry] Initialized with tools:', toolRegistry.getEnabledToolIds());
 
   // Load config values
   const openaiApiKey = configRepository.getConfig('openaiApiKey') || "";
@@ -373,7 +399,8 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
         summarizationThreshold: configRepository.getConfig('summarizationThreshold') as number || 40,
         langsmithApiKey: configRepository.getConfig('langsmithApiKey') as string || "",
         enableLangsmithTracing: configRepository.getConfig('enableLangsmithTracing') as boolean || false,
-        langsmithProjectName: configRepository.getConfig('langsmithProjectName') as string || "akagaku"
+        langsmithProjectName: configRepository.getConfig('langsmithProjectName') as string || "akagaku",
+        toolConfigs: toolConfigRepository.getAllToolConfigs()
       });
     }
     else if (arg === 'OPEN_CONFIG') {
@@ -488,7 +515,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     }
   })
 
-  ipcMain.on('save_config', (event, { openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature, openweathermapApiKey, coinmarketcapApiKey, chatHistoryLimit, displayScale, speechBubbleWidth, enableLightweightModel, enableAutoSummarization, summarizationThreshold, langsmithApiKey, enableLangsmithTracing, langsmithProjectName, speechBubbleFontFamily, speechBubbleFontSize, speechBubbleCustomCSS }) => {
+  ipcMain.on('save_config', (event, { openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature, openweathermapApiKey, coinmarketcapApiKey, chatHistoryLimit, displayScale, speechBubbleWidth, enableLightweightModel, enableAutoSummarization, summarizationThreshold, langsmithApiKey, enableLangsmithTracing, langsmithProjectName, speechBubbleFontFamily, speechBubbleFontSize, speechBubbleCustomCSS, toolConfigs }) => {
     console.log(openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature, openweathermapApiKey)
     const previousOpenaiApiKey = configRepository.getConfig('openaiApiKey') as string || "";
     const previousAnthropicApiKey = configRepository.getConfig('anthropicApiKey') as string || "";
@@ -577,6 +604,18 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
       });
     }
 
+    // Save tool configurations
+    if (toolConfigs) {
+      toolConfigRepository.saveAllToolConfigs(toolConfigs);
+
+      // Update ToolRegistry with new configs
+      Object.entries(toolConfigs).forEach(([toolId, config]) => {
+        toolRegistry.updateToolConfig(toolId, config as any);
+      });
+
+      console.log('[ToolRegistry] Updated with new configs. Enabled tools:', toolRegistry.getEnabledToolIds());
+    }
+
     if (updateRequired) {
       ghost.updateExecuter({ openaiApiKey: openaiApiKey, anthropicApiKey: anthropicApiKey, llmService: llmService as 'openai' | 'anthropic', modelName: selectedModel, temperature: temperature });
     }
@@ -592,6 +631,11 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
       console.error('Failed to get system fonts:', error);
       return [];
     }
+  })
+
+  // Get available tools
+  ipcMain.handle('get-available-tools', async () => {
+    return toolRegistry.getAllToolsMetadata();
   })
 
   ipcMain.on('load-archive', (event, archiveKey: string) => {

@@ -95,6 +95,13 @@ export interface ConfigResponse {
     speechBubbleFontFamily?: string;
     speechBubbleFontSize?: number;
     speechBubbleCustomCSS?: string;
+    // Tool configurations
+    toolConfigs?: Record<string, ToolConfig>;
+}
+
+export interface ToolConfig {
+    enabled: boolean;
+    settings: Record<string, any>;
 }
 
 export interface UserInput {
