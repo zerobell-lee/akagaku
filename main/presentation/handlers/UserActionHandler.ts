@@ -428,15 +428,19 @@ export class UserActionHandler {
     this.mainWindow.webContents.send('user-action', 'BUBBLE_OPENED');
 
     // Create speech bubble window if not exists
-    if (!this.speechBubbleWindow) {
+    const isNewWindow = !this.speechBubbleWindow;
+    if (isNewWindow) {
       this.speechBubbleWindow = this.createSpeechBubbleWindow();
       this.loadUrlOnBrowserWindow(this.speechBubbleWindow, 'speechBubblePage');
-
       this.positionSpeechBubble();
 
-      this.speechBubbleWindow.once('ready-to-show', () => {
-        this.speechBubbleWindow?.showInactive();
-        this.applySpeechBubbleStyle();
+      // Wait for window to be ready before starting message flow
+      await new Promise<void>((resolve) => {
+        this.speechBubbleWindow!.once('ready-to-show', () => {
+          this.speechBubbleWindow?.showInactive();
+          this.applySpeechBubbleStyle();
+          resolve();
+        });
       });
     }
 
@@ -453,8 +457,23 @@ export class UserActionHandler {
         this.appExitTimeout = null;
       }
 
-      this.speechBubbleWindow.webContents.send('ghost-message-loading', false);
-      this.speechBubbleWindow.webContents.send('ghost-message', response);
+      // If window was closed during message processing, recreate it
+      if (!this.speechBubbleWindow) {
+        console.log('[UserActionHandler] Speech bubble closed during processing, recreating...');
+        this.speechBubbleWindow = this.createSpeechBubbleWindow();
+        this.loadUrlOnBrowserWindow(this.speechBubbleWindow, 'speechBubblePage');
+        this.positionSpeechBubble();
+
+        this.speechBubbleWindow.once('ready-to-show', () => {
+          this.speechBubbleWindow?.showInactive();
+          this.applySpeechBubbleStyle();
+          this.speechBubbleWindow?.webContents.send('ghost-message-loading', false);
+          this.speechBubbleWindow?.webContents.send('ghost-message', response);
+        });
+      } else {
+        this.speechBubbleWindow.webContents.send('ghost-message-loading', false);
+        this.speechBubbleWindow.webContents.send('ghost-message', response);
+      }
       this.mainWindow.webContents.send('ghost-message', response);
 
       const chatHistory = getChatHistory(this.characterName);
@@ -463,8 +482,23 @@ export class UserActionHandler {
       this.ghostIsProcessingMessage = false;
     } catch (error) {
       console.error(error);
-      this.speechBubbleWindow.webContents.send('ghost-message-loading', false);
-      this.speechBubbleWindow.webContents.send('ghost-message', { error: error });
+      // If window was closed during error, recreate it to show error
+      if (!this.speechBubbleWindow) {
+        console.log('[UserActionHandler] Speech bubble closed during error, recreating...');
+        this.speechBubbleWindow = this.createSpeechBubbleWindow();
+        this.loadUrlOnBrowserWindow(this.speechBubbleWindow, 'speechBubblePage');
+        this.positionSpeechBubble();
+
+        this.speechBubbleWindow.once('ready-to-show', () => {
+          this.speechBubbleWindow?.showInactive();
+          this.applySpeechBubbleStyle();
+          this.speechBubbleWindow?.webContents.send('ghost-message-loading', false);
+          this.speechBubbleWindow?.webContents.send('ghost-message', { error: error });
+        });
+      } else {
+        this.speechBubbleWindow.webContents.send('ghost-message-loading', false);
+        this.speechBubbleWindow.webContents.send('ghost-message', { error: error });
+      }
       this.mainWindow.webContents.send('ghost-message', { error: error });
       this.ghostIsProcessingMessage = false;
     }
