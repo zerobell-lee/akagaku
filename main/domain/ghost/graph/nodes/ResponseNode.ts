@@ -10,6 +10,9 @@ import { Affection } from "main/domain/value-objects/Affection";
 import { Attitude } from "main/domain/value-objects/Attitude";
 import { Relationship } from "main/domain/entities/Relationship";
 import { PerformanceMonitor } from "../utils/PerformanceMonitor";
+import { StreamingMessageParser } from "main/infrastructure/message/StreamingMessageParser";
+import { streamingEvents } from "../utils/StreamingEventEmitter";
+import { GhostResponse } from "@shared/types";
 
 const getCurrentTimestamp = (sentAt: Date) => {
     return formatDatetime(sentAt);
@@ -89,13 +92,50 @@ export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>(
             relationship: convertContextInputs('Relationship', relationship.toRaw()),
             tool_call_result: toolCallFinalAnswer ? `Tool results:\n${toolCallFinalAnswer}` : ''
         }
+
         PerformanceMonitor.start('LLM Response Generation');
-        const response = await conversationAgent.invoke(payload);
+
+        // Try streaming first
+        let parsed: GhostResponse | null = null;
+        let response: any = null;
+
+        try {
+            console.log('[ResponseNode] Attempting streaming response');
+            streamingEvents.emitStreamStart(characterId);
+
+            const streamingParser = new StreamingMessageParser();
+            const stream = await conversationAgent.stream(payload);
+
+            for await (const chunk of stream) {
+                const content = typeof chunk.content === 'string'
+                    ? chunk.content
+                    : JSON.stringify(chunk.content);
+
+                const parseResult = streamingParser.onChunk(content);
+
+                if (parseResult && parseResult.type === 'message_chunk' && parseResult.messageChunk) {
+                    streamingEvents.emitChunk(characterId, parseResult.messageChunk);
+                }
+            }
+
+            parsed = streamingParser.finalize();
+            streamingEvents.emitStreamComplete(characterId);
+            console.log('[ResponseNode] Streaming response completed successfully');
+
+        } catch (streamError) {
+            console.warn('[ResponseNode] Streaming failed, falling back to invoke:', streamError);
+            streamingEvents.emitStreamError(characterId, streamError as Error);
+
+            // Fallback to traditional invoke
+            response = await conversationAgent.invoke(payload);
+            parsed = aiResponseParser.parseGhostResponse(response);
+            console.log('[ResponseNode] Fallback invoke completed');
+        }
+
         PerformanceMonitor.end('LLM Response Generation');
         chat_history.addMessage(newMessage);
         try {
-            const parsed = aiResponseParser.parseGhostResponse(response);
-            console.log('response', response)
+            console.log('response', parsed)
 
             // Use Relationship Entity with Value Objects
             const updatedAffection = relationship.getAffection().add(parsed.add_affection);

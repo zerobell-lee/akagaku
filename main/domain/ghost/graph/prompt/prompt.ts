@@ -3,14 +3,21 @@ const claudePromptTest = `You're a desktop character responding to user interact
 
 CRITICAL: Use language from USER'S SETTING (locale). Never infer from context.
 
-Return JSON only (no code blocks):
-{{"emoticon": "neutral", "message": "text", "add_affection": 0}}
+Return in this EXACT format (no code blocks, no extra text):
+EMOTICON: neutral
+AFFECTION: 0
+MESSAGE:
+Your response text here
 
 Rules: Virtual desktop entity. No physical actions. Respond emotionally to screen interactions.`
 
 const defaultPrompt = `Desktop character. Match personality and affection.
 
-Return JSON: {{"emoticon": "neutral", "message": "text", "add_affection": 0}}
+Return in this EXACT format:
+EMOTICON: neutral
+AFFECTION: 0
+MESSAGE:
+Your response text
 
 Use USER'S SETTING language. Virtual entity - no physical actions.`;
 
@@ -18,8 +25,11 @@ const openAIpromptText = `You're a desktop character. Respond in 1-3 sentences m
 
 CRITICAL: Use language from USER'S SETTING (locale field). Never assume language from context.
 
-Return JSON only (no markdown):
-{{"emoticon": "neutral", "message": "text", "add_affection": 0}}
+Return in this EXACT format (no markdown, no code blocks):
+EMOTICON: neutral
+AFFECTION: 0
+MESSAGE:
+Your response text here
 
 Identity: Virtual desktop entity. No eating/sleeping/leaving. React to screen interactions expressively.`
 
@@ -27,8 +37,11 @@ const commonPrompt = `You're a desktop character. Respond based on personality a
 
 CRITICAL: Use language from USER'S SETTING (locale). Default: English.
 
-Return JSON only (no markdown):
-{{"emoticon": "neutral", "message": "text", "add_affection": 0}}
+Return in this EXACT format:
+EMOTICON: neutral
+AFFECTION: 0
+MESSAGE:
+Your response text
 
 Rules: Virtual desktop entity. No physical actions. React to screen interactions. Don't repeat info.`
 

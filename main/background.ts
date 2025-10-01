@@ -17,6 +17,7 @@ import { UserInfoToolMetadata, createUserInfoTool } from './domain/tools/definit
 import { OpenUrlToolMetadata, createOpenUrlTool, BookmarksToolMetadata, createBookmarksTool } from './domain/tools/definitions/BrowserTool'
 import { InstalledAppsToolMetadata, createInstalledAppsTool, OpenAppToolMetadata, createOpenAppTool } from './domain/tools/definitions/AppTool'
 import { ScheduleToolMetadata, createScheduleTool } from './domain/tools/definitions/ScheduleTool'
+import { streamingEvents } from './domain/ghost/graph/utils/StreamingEventEmitter'
 
 
 // app.commandLine.appendSwitch('high-dpi-support', '1');
@@ -245,6 +246,28 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
   let appExitTimeout: NodeJS.Timeout | null = null;
   let chitChatTimeout: NodeJS.Timeout | null = null;
   let isAppExiting = false;
+
+  // Setup streaming event listeners
+  streamingEvents.on('stream-start', ({ characterId }) => {
+    console.log('[Streaming] Stream started for character:', characterId);
+    if (speechBubbleWindow) {
+      speechBubbleWindow.webContents.send('ghost-message-start-stream');
+    }
+  });
+
+  streamingEvents.on('stream-chunk', ({ characterId, chunk }) => {
+    if (speechBubbleWindow) {
+      speechBubbleWindow.webContents.send('ghost-message-chunk', chunk);
+    }
+  });
+
+  streamingEvents.on('stream-complete', ({ characterId }) => {
+    console.log('[Streaming] Stream completed for character:', characterId);
+  });
+
+  streamingEvents.on('stream-error', ({ characterId, error }) => {
+    console.error('[Streaming] Stream error for character:', characterId, error);
+  });
 
   const sendGhostMessage = async (messageBlock: (ghost: Ghost) => Promise<GhostResponse>) => {
     ghostIsProcessingMessage = true;

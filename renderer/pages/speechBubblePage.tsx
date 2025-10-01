@@ -7,6 +7,7 @@ export default function SpeechBubblePage() {
     const [isMessageLoading, setIsMessageLoading] = useState(true)
     const [displayText, setDisplayText] = useState('')
     const [isComplete, setIsComplete] = useState(false)
+    const [isStreaming, setIsStreaming] = useState(false)
     const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
     useEffect(() => {
@@ -14,21 +15,46 @@ export default function SpeechBubblePage() {
             setIsMessageLoading(isLoading)
             setIsComplete(false)
             setDisplayText('')
+            setIsStreaming(false)
         })
+
+        // New: Start streaming
+        window.ipc.on('ghost-message-start-stream', () => {
+            console.log('[Frontend] Streaming started');
+            setIsStreaming(true);
+            setCharacterText('');
+            setDisplayText('');
+            setIsMessageLoading(false); // Show UI immediately
+        });
+
+        // New: Receive streaming chunks
+        window.ipc.on('ghost-message-chunk', (chunk: string) => {
+            setCharacterText(prev => prev + chunk);
+            setDisplayText(prev => prev + chunk); // Real-time display
+        });
 
         window.ipc.on('ghost-message', (message: GhostResponse) => {
             if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current)
             }
-            setIsMessageLoading(false)
-            if (message.error) {
-                if (message.error.name === 'ApiKeyNotDefinedError') {
-                    setCharacterText("API Key가 없네요. 설정에서 API 키를 설정해주세요.")
+
+            // If not streaming, use traditional approach
+            if (!isStreaming) {
+                setIsMessageLoading(false)
+                if (message.error) {
+                    if (message.error.name === 'ApiKeyNotDefinedError') {
+                        setCharacterText("API Key가 없네요. 설정에서 API 키를 설정해주세요.")
+                    } else {
+                        setCharacterText(message.error.message)
+                    }
                 } else {
-                    setCharacterText(message.error.message)
+                    setCharacterText(message.message)
                 }
             } else {
-                setCharacterText(message.message)
+                // Streaming mode: just ensure final message is set
+                setIsStreaming(false);
+                setCharacterText(message.message);
+                setDisplayText(message.message);
             }
         })
 
@@ -77,6 +103,17 @@ export default function SpeechBubblePage() {
     }, [])
 
     useEffect(() => {
+        // Skip typing effect for streaming mode (already displayed in real-time)
+        if (isStreaming) {
+            if (displayText.length > 0 && displayText.length === characterText.length) {
+                setIsComplete(true);
+                window.ipc.send('user-action', 'DISPLAY_TEXT_COMPLETE');
+                closeSpeechBubbleWithTimeout();
+            }
+            return;
+        }
+
+        // Traditional typing effect for non-streaming mode
         if (isMessageLoading) {
             return
         }
@@ -91,7 +128,7 @@ export default function SpeechBubblePage() {
             setDisplayText(characterText.slice(0, displayText.length + 1))
         }, 50)
         return () => clearTimeout(timeout)
-    }, [displayText, isMessageLoading])
+    }, [displayText, isMessageLoading, isStreaming, characterText])
 
     const handleOpenDialog = () => {
         window.ipc.send('user-action', 'CHAT_OPENED')
