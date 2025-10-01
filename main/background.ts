@@ -18,6 +18,8 @@ import { OpenUrlToolMetadata, createOpenUrlTool, BookmarksToolMetadata, createBo
 import { InstalledAppsToolMetadata, createInstalledAppsTool, OpenAppToolMetadata, createOpenAppTool } from './domain/tools/definitions/AppTool'
 import { ScheduleToolMetadata, createScheduleTool } from './domain/tools/definitions/ScheduleTool'
 import { streamingEvents } from './domain/ghost/graph/utils/StreamingEventEmitter'
+import { UserActionHandler } from './presentation/handlers/UserActionHandler'
+import { ConfigHandler } from './presentation/handlers/ConfigHandler'
 
 
 // app.commandLine.appendSwitch('high-dpi-support', '1');
@@ -233,33 +235,45 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     console.warn('Tray icon could not be loaded:', error)
   }
 
-  let userChatInputWindow: BrowserWindow | null = null;
-  let configWindow: BrowserWindow | null = null;
-  let speechBubbleWindow: BrowserWindow | null = null;
-  let logsWindow: BrowserWindow | null = null;
+  // Initialize UserActionHandler
+  const userActionHandler = new UserActionHandler({
+    mainWindow,
+    characterName,
+    characterAppearance,
+    displayScale,
+    speechBubbleWidth,
+    ghost,
+    configRepository,
+    toolConfigRepository,
+    isProd
+  });
 
-  let ghostIsProcessingMessage = false;
-  let streamHasStarted = false;
+  // Initialize ConfigHandler
+  const configHandler = new ConfigHandler({
+    configRepository,
+    toolConfigRepository,
+    toolRegistry,
+    ghost,
+    userActionHandler
+  });
 
   let startMouse = null;
   let startWindow: { x: number, y: number } | null = null;
 
-  let appExitTimeout: NodeJS.Timeout | null = null;
   let chitChatTimeout: NodeJS.Timeout | null = null;
-  let isAppExiting = false;
 
   // Setup streaming event listeners
   streamingEvents.on('stream-start', ({ characterId }) => {
     console.log('[Streaming] Stream started for character:', characterId);
-    streamHasStarted = true;
+    userActionHandler.setStreamHasStarted(true);
 
     // Clear app exit timeout since streaming has started
-    if (appExitTimeout && isAppExiting) {
+    if (userActionHandler.getIsAppExiting()) {
       console.log('[App Exit] Stream started, clearing exit timeout');
-      clearTimeout(appExitTimeout);
-      appExitTimeout = null;
+      userActionHandler.clearAppExitTimeout();
     }
 
+    const speechBubbleWindow = userActionHandler.getSpeechBubbleWindow();
     if (speechBubbleWindow) {
       speechBubbleWindow.webContents.send('ghost-message-start-stream');
     }
@@ -272,6 +286,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
   });
 
   streamingEvents.on('stream-chunk', ({ characterId, chunk }) => {
+    const speechBubbleWindow = userActionHandler.getSpeechBubbleWindow();
     if (speechBubbleWindow) {
       speechBubbleWindow.webContents.send('ghost-message-chunk', chunk);
     }
@@ -279,10 +294,10 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
 
   streamingEvents.on('stream-complete', ({ characterId }) => {
     console.log('[Streaming] Stream completed for character:', characterId);
-    streamHasStarted = false;
+    userActionHandler.setStreamHasStarted(false);
 
     // If app is exiting, quit after streaming completes
-    if (isAppExiting) {
+    if (userActionHandler.getIsAppExiting()) {
       console.log('[App Exit] Streaming complete, quitting in 5 seconds');
       setTimeout(() => {
         app.quit();
@@ -292,10 +307,10 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
 
   streamingEvents.on('stream-error', ({ characterId, error }) => {
     console.error('[Streaming] Stream error for character:', characterId, error);
-    streamHasStarted = false;
+    userActionHandler.setStreamHasStarted(false);
 
     // If app is exiting and stream errored, quit after delay
-    if (isAppExiting) {
+    if (userActionHandler.getIsAppExiting()) {
       console.log('[App Exit] Streaming error, quitting in 3 seconds');
       setTimeout(() => {
         app.quit();
@@ -303,258 +318,9 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     }
   });
 
-  const sendGhostMessage = async (messageBlock: (ghost: Ghost) => Promise<GhostResponse>) => {
-    ghostIsProcessingMessage = true;
-    mainWindow.webContents.send('user-action', 'BUBBLE_OPENED')
-    if (!speechBubbleWindow) {
-      const screenWidth = screen.getPrimaryDisplay().workAreaSize.width
-      const screenHeight = screen.getPrimaryDisplay().workAreaSize.height
-      const scaledBubbleWidth = Math.floor(speechBubbleWidth * displayScale);
-      const scaledBubbleHeight = Math.floor(characterAppearance.character_height * displayScale);
-      const scaledCharWidth = Math.floor(characterAppearance.character_width * displayScale);
-
-      speechBubbleWindow = createWindow('speech-bubble', {
-        width: speechBubbleWidth,
-        height: characterAppearance.character_height,
-        transparent: true,
-        frame: false,
-        resizable: false,
-        alwaysOnTop: true,
-        skipTaskbar: true,
-        show: false,
-        webPreferences: {
-          preload: path.join(__dirname, 'preload.js'),
-        },
-      }, displayScale, true)
-      loadUrlOnBrowserWindow(speechBubbleWindow, 'speechBubblePage')
-
-      if (mainWindow.getBounds().x < screenWidth / 2) {
-        speechBubbleWindow.setPosition(
-          mainWindow.getBounds().x + scaledCharWidth + 50,
-          mainWindow.getBounds().y
-        )
-      } else {
-        speechBubbleWindow.setPosition(
-          mainWindow.getBounds().x - scaledBubbleWidth - 50,
-          mainWindow.getBounds().y
-        )
-      }
-      speechBubbleWindow.once('ready-to-show', () => {
-        speechBubbleWindow.showInactive()
-
-        // Send initial speech bubble style
-        const speechBubbleFontFamily = configRepository.getConfig('speechBubbleFontFamily') as string;
-        const speechBubbleFontSize = configRepository.getConfig('speechBubbleFontSize') as number;
-        const speechBubbleCustomCSS = configRepository.getConfig('speechBubbleCustomCSS') as string;
-
-        if (speechBubbleFontFamily || speechBubbleFontSize || speechBubbleCustomCSS) {
-          speechBubbleWindow.webContents.send('update-speech-bubble-style', {
-            fontFamily: speechBubbleFontFamily || '',
-            fontSize: speechBubbleFontSize || 16,
-            customCSS: speechBubbleCustomCSS || ''
-          });
-        }
-      })
-    }
-    if (!speechBubbleWindow.isVisible()) {
-        speechBubbleWindow.showInactive()
-    }
-    
-
-    try {
-      speechBubbleWindow.webContents.send('ghost-message-loading', true)
-      const response = await messageBlock(ghost)
-      if (isAppExiting && appExitTimeout) {
-        clearTimeout(appExitTimeout)
-        appExitTimeout = null;
-      }
-      speechBubbleWindow.webContents.send('ghost-message', response)
-      mainWindow.webContents.send('ghost-message', response)
-      const chatHistory = getChatHistory(characterName)
-      logsWindow?.webContents.send('receive_chatlogs', chatHistory.toChatLogs())
-      ghostIsProcessingMessage = false;
-    } catch (error) {
-      console.error(error)
-      speechBubbleWindow.webContents.send('ghost-message-loading', false)
-      speechBubbleWindow.webContents.send('ghost-message', { error: error })
-      mainWindow.webContents.send('ghost-message', { error: error })
-      ghostIsProcessingMessage = false;
-    }
-  }
-
-  const isSpeechBubbleOpen = () => {
-    return speechBubbleWindow !== null;
-  }
-
+  // User action IPC handler - delegate to UserActionHandler
   ipcMain.on('user-action', async (event, arg) => {
-    console.log(arg)
-    if (arg === 'APP_STARTED') {
-      const characterProperties: CharacterProperties = {
-        character_name: characterName,
-        character_width: characterAppearance.character_width,
-        character_height: characterAppearance.character_height,
-        graphics: characterAppearance.graphics.map(graphic => ({
-          emoticon: graphic.emoticon,
-          imgSrc: `local-resource://character/${characterName}/images/${graphic.imgSrc}`
-        })),
-        touchable_areas: characterAppearance.touchable_areas,
-      }
-      mainWindow.webContents.send('character_loaded', characterProperties)
-    }
-    else if (arg === 'CHARACTER_LOADED') {
-      sendGhostMessage((g) => g.sayHello())
-    }
-    else if (arg === 'CHAT_OPENED' && userChatInputWindow === null) {
-      userChatInputWindow = createWindow('user-chat-input', {
-        width: 600,
-        height: 600,
-        transparent: true,
-        frame: false,
-        alwaysOnTop: true,
-        webPreferences: {
-          preload: path.join(__dirname, 'preload.js'),
-        },
-      }, displayScale, true)
-      loadUrlOnBrowserWindow(userChatInputWindow, 'chatDialog')
-      setTimeout(() => {
-        userChatInputWindow.focus()
-      }, 100)
-    }
-    else if (arg === 'CHAT_CLOSED' && userChatInputWindow !== null) {
-      userChatInputWindow.close()
-      userChatInputWindow = null
-    }
-    else if (arg === 'APP_QUIT') {
-      if (isAppExiting) {
-        return;
-      }
-      isAppExiting = true;
-      streamHasStarted = false; // Reset streaming state
-      sendGhostMessage((g) => g.sayGoodbye())
-
-      // Quit after 10 seconds if streaming hasn't started
-      appExitTimeout = setTimeout(() => {
-        if (!streamHasStarted) {
-          console.log('[App Exit] Streaming did not start within 10s, force quitting');
-          app.quit();
-        } else {
-          console.log('[App Exit] Streaming started, waiting for completion');
-          // If streaming started, wait for it to complete
-        }
-      }, 10000)
-    }
-    else if (arg === 'BUBBLE_CLOSED') {
-      if (isSpeechBubbleOpen() && !ghostIsProcessingMessage) {
-        speechBubbleWindow.close()
-        speechBubbleWindow = null
-      }
-    }
-    else if (arg === 'REQUEST_CONFIG') {
-      configWindow?.webContents.send('config_response', {
-        openaiApiKey: configRepository.getConfig('openaiApiKey') as string || "",
-        anthropicApiKey: configRepository.getConfig('anthropicApiKey') as string || "",
-        llmService: configRepository.getConfig('llmService') as string || "",
-        selectedModel: configRepository.getConfig('selectedModel') as string || "",
-        temperature: configRepository.getConfig('temperature') as number || 1,
-        openweathermapApiKey: configRepository.getConfig('openweathermapApiKey') as string || "",
-        coinmarketcapApiKey: configRepository.getConfig('coinmarketcapApiKey') as string || "",
-        chatHistoryLimit: configRepository.getConfig('chatHistoryLimit') as number || 20,
-        displayScale: configRepository.getConfig('displayScale') as number || 0.5,
-        speechBubbleWidth: configRepository.getConfig('speechBubbleWidth') as number || 500,
-        enableLightweightModel: configRepository.getConfig('enableLightweightModel') !== false,
-        enableAutoSummarization: configRepository.getConfig('enableAutoSummarization') !== false,
-        summarizationThreshold: configRepository.getConfig('summarizationThreshold') as number || 40,
-        langsmithApiKey: configRepository.getConfig('langsmithApiKey') as string || "",
-        enableLangsmithTracing: configRepository.getConfig('enableLangsmithTracing') as boolean || false,
-        langsmithProjectName: configRepository.getConfig('langsmithProjectName') as string || "akagaku",
-        toolConfigs: toolConfigRepository.getAllToolConfigs()
-      });
-    }
-    else if (arg === 'OPEN_CONFIG') {
-      if (!configWindow) {
-        configWindow = createWindow('config', {
-          width: 600,
-          height: 800,
-          transparent: false,
-          frame: true,
-          webPreferences: {
-            preload: path.join(__dirname, 'preload.js'),
-          },
-        }, displayScale, true)
-        configWindow.setMenuBarVisibility(false)
-        loadUrlOnBrowserWindow(configWindow, 'config')
-        configWindow.on('close', () => {
-          configWindow = null
-        })
-      } else {
-        configWindow.show()
-      }
-    }
-    else if (arg === 'CLOSE_CONFIG') {
-      configWindow?.close()
-      configWindow = null
-    }
-    else if (arg === 'DISPLAY_TEXT_COMPLETE') {
-      if (isAppExiting) {
-        if (appExitTimeout) {
-          clearTimeout(appExitTimeout)
-          appExitTimeout = null;
-        }
-        setTimeout(() => {
-          app.quit()
-        }, 3000)
-      }
-    }
-    else if (arg === 'RESET_CHAT_HISTORY') {
-      ghost.resetChatHistory()
-      sendGhostMessage((g) => g.sayHello())
-    }
-    else if (arg === 'OPEN_LOG') {
-      if (!logsWindow) {
-        logsWindow = createWindow('logs', {
-          width: 1000,
-          height: 750,
-          transparent: false,
-          frame: true,
-          webPreferences: {
-            preload: path.join(__dirname, 'preload.js'),
-          },
-        }, displayScale, true)
-        loadUrlOnBrowserWindow(logsWindow, 'logs')
-        logsWindow.setMenuBarVisibility(false)
-        logsWindow.on('close', () => {
-          logsWindow = null
-        })
-      } else {
-        logsWindow.show()
-      }
-    }
-    else if (arg === 'LOG_OPENED') {
-      // Load ALL messages excluding summaries (summaries are for LLM only)
-      const allMessages = chatHistoryRepository.getAllMessages(characterName)
-      const archiveList = chatHistoryRepository.getArchiveList(characterName)
-
-      // Convert to chat logs (exclude system messages)
-      const chatLogs = allMessages
-        .filter(msg => msg.type !== 'system')
-        .map(msg => msg.toChatLog())
-
-      logsWindow?.webContents.send('receive_chatlogs', {
-        current: chatLogs,
-        archives: archiveList.map(key => ({
-          key,
-          timestamp: key.split('_').pop()?.replace('.json', '') || ''
-        })),
-        stats: {
-          total: allMessages.length,
-          conversation: allMessages.length,
-          summary: 0
-        }
-      })
-    }
-    else if (arg === 'LOAD_ARCHIVE') {
-      // This will be sent with data from renderer
-    }
+    await userActionHandler.handleAction(arg);
   })
 
   ipcMain.on('drag-start', (event, arg) => {
@@ -571,140 +337,24 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     const dx = currentMouse.x - startMouse.x
     const { newX, newY } = { newX: startWindow.x + dx, newY: startWindow.y }
     mainWindow.setBounds({ x: newX, y: newY, width: mainWindow.getBounds().width, height: mainWindow.getBounds().height }, false)
-    if (speechBubbleWindow) {
-      const scaledCharWidth = Math.floor(characterAppearance.character_width * displayScale);
-      const scaledBubbleWidth = Math.floor(speechBubbleWidth * displayScale);
-      if (newX < screen.getPrimaryDisplay().workAreaSize.width / 2) {
-        speechBubbleWindow.setPosition(newX + scaledCharWidth + 50, newY, false)
-      } else {
-        speechBubbleWindow.setPosition(newX - scaledBubbleWidth - 50, newY, false)
-      }
-    }
+
+    // Update speech bubble position via handler
+    userActionHandler.updateSpeechBubblePosition(newX, newY);
   })
 
-  ipcMain.on('save_config', (event, { openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature, openweathermapApiKey, coinmarketcapApiKey, chatHistoryLimit, displayScale, speechBubbleWidth, enableLightweightModel, enableAutoSummarization, summarizationThreshold, langsmithApiKey, enableLangsmithTracing, langsmithProjectName, speechBubbleFontFamily, speechBubbleFontSize, speechBubbleCustomCSS, toolConfigs }) => {
-    console.log(openaiApiKey, anthropicApiKey, llmService, selectedModel, temperature, openweathermapApiKey)
-    const previousOpenaiApiKey = configRepository.getConfig('openaiApiKey') as string || "";
-    const previousAnthropicApiKey = configRepository.getConfig('anthropicApiKey') as string || "";
-    const previousLlmService = configRepository.getConfig('llmService') as string || "";
-    const previousSelectedModel = configRepository.getConfig('selectedModel') as string || "";
-    const previousTemperature = configRepository.getConfig('temperature') as number || 1;
-    const previousOpenweathermapApiKey = configRepository.getConfig('openweathermapApiKey') as string || "";
-    const previousCoinmarketcapApiKey = configRepository.getConfig('coinmarketcapApiKey') as string || "";
-    const previousChatHistoryLimit = configRepository.getConfig('chatHistoryLimit') as number || 20;
-    const previousDisplayScale = configRepository.getConfig('displayScale') as number || 0.5;
-    const previousSpeechBubbleWidth = configRepository.getConfig('speechBubbleWidth') as number || 500;
-
-    let updateRequired = false;
-    if (previousOpenaiApiKey !== openaiApiKey) {
-      configRepository.setConfig('openaiApiKey', openaiApiKey);
-      updateRequired = true;
-    }
-    if (previousAnthropicApiKey !== anthropicApiKey) {
-      configRepository.setConfig('anthropicApiKey', anthropicApiKey);
-      updateRequired = true;
-    }
-    if (previousLlmService !== llmService || previousSelectedModel !== selectedModel) {
-      configRepository.setConfig('llmService', llmService);
-      configRepository.setConfig('selectedModel', selectedModel);
-      updateRequired = true;
-    }
-    if (previousTemperature !== temperature) {
-      configRepository.setConfig('temperature', temperature);
-      updateRequired = true;
-    }
-    if (previousOpenweathermapApiKey !== openweathermapApiKey) {
-      configRepository.setConfig('openweathermapApiKey', openweathermapApiKey);
-    }
-    if (previousChatHistoryLimit !== chatHistoryLimit) {
-      configRepository.setConfig('chatHistoryLimit', chatHistoryLimit);
-    }
-    if (previousCoinmarketcapApiKey !== coinmarketcapApiKey) {
-      configRepository.setConfig('coinmarketcapApiKey', coinmarketcapApiKey);
-    }
-    if (previousDisplayScale !== displayScale) {
-      configRepository.setConfig('displayScale', displayScale);
-      app.relaunch();
-      app.quit();
-    }
-    if (previousSpeechBubbleWidth !== speechBubbleWidth) {
-      configRepository.setConfig('speechBubbleWidth', speechBubbleWidth);
-      app.relaunch();
-      app.quit();
-    }
-    configRepository.setConfig('enableLightweightModel', enableLightweightModel);
-    configRepository.setConfig('enableAutoSummarization', enableAutoSummarization);
-    configRepository.setConfig('summarizationThreshold', summarizationThreshold);
-    // Developer settings
-    configRepository.setConfig('langsmithApiKey', langsmithApiKey || '');
-    configRepository.setConfig('enableLangsmithTracing', enableLangsmithTracing || false);
-    configRepository.setConfig('langsmithProjectName', langsmithProjectName || 'akagaku');
-
-    // Update LangSmith environment variables
-    if (enableLangsmithTracing && langsmithApiKey) {
-      process.env.LANGCHAIN_TRACING_V2 = "true";
-      process.env.LANGCHAIN_API_KEY = langsmithApiKey;
-      process.env.LANGCHAIN_PROJECT = langsmithProjectName || 'akagaku';
-      console.log('[LangSmith] Tracing enabled for project:', langsmithProjectName);
-    } else {
-      process.env.LANGCHAIN_TRACING_V2 = "false";
-      console.log('[LangSmith] Tracing disabled');
-    }
-
-    // Speech bubble styling
-    if (speechBubbleFontFamily !== undefined) {
-      configRepository.setConfig('speechBubbleFontFamily', speechBubbleFontFamily);
-    }
-    if (speechBubbleFontSize !== undefined) {
-      configRepository.setConfig('speechBubbleFontSize', speechBubbleFontSize);
-    }
-    if (speechBubbleCustomCSS !== undefined) {
-      configRepository.setConfig('speechBubbleCustomCSS', speechBubbleCustomCSS);
-    }
-
-    // Send updated config to speech bubble window
-    if (speechBubbleWindow) {
-      speechBubbleWindow.webContents.send('update-speech-bubble-style', {
-        fontFamily: speechBubbleFontFamily,
-        fontSize: speechBubbleFontSize,
-        customCSS: speechBubbleCustomCSS
-      });
-    }
-
-    // Save tool configurations
-    let toolConfigChanged = false;
-    if (toolConfigs) {
-      toolConfigRepository.saveAllToolConfigs(toolConfigs);
-
-      // Update ToolRegistry with new configs
-      Object.entries(toolConfigs).forEach(([toolId, config]) => {
-        toolRegistry.updateToolConfig(toolId, config as any);
-      });
-
-      console.log('[ToolRegistry] Updated with new configs. Enabled tools:', toolRegistry.getEnabledToolIds());
-      toolConfigChanged = true;
-    }
-
-    if (updateRequired || toolConfigChanged) {
-      ghost.updateExecuter({ openaiApiKey: openaiApiKey, anthropicApiKey: anthropicApiKey, llmService: llmService as 'openai' | 'anthropic', modelName: selectedModel, temperature: temperature });
-    }
+  // Config IPC handler - delegate to ConfigHandler
+  ipcMain.on('save_config', async (event, configData) => {
+    await configHandler.saveConfig(configData);
   })
 
-  // Get system fonts
+  // Get system fonts - delegate to ConfigHandler
   ipcMain.handle('get-system-fonts', async () => {
-    try {
-      const fontList = require('font-list');
-      const fonts = await fontList.getFonts();
-      return fonts;
-    } catch (error) {
-      console.error('Failed to get system fonts:', error);
-      return [];
-    }
+    return await configHandler.getSystemFonts();
   })
 
-  // Get available tools
+  // Get available tools - delegate to ConfigHandler
   ipcMain.handle('get-available-tools', async () => {
-    return toolRegistry.getAllToolsMetadata();
+    return configHandler.getAvailableTools();
   })
 
   ipcMain.on('load-archive', (event, archiveKey: string) => {
@@ -712,6 +362,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     const chatLogs = archiveMessages
       .filter(msg => msg.type !== 'system')
       .map(msg => msg.toChatLog())
+    const logsWindow = userActionHandler.getLogsWindow();
     logsWindow?.webContents.send('receive_archive_logs', chatLogs)
   })
 
@@ -732,7 +383,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     }
 
     // Ignore if already processing a message
-    if (ghostIsProcessingMessage) {
+    if (userActionHandler.getGhostIsProcessingMessage()) {
       console.log('[IPC] Message ignored (already processing):', message.input.substring(0, 50));
       return;
     }
@@ -740,8 +391,8 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     lastMessageHash = messageHash;
     lastMessageTime = now;
 
-    sendGhostMessage((g) => g.sendRawMessage(message))
-    userChatInputWindow?.close()
+    // Delegate to handler
+    await userActionHandler.handleUserMessage(message);
   })
 
   mainWindow.on('close', () => {

@@ -9,18 +9,25 @@ export default function SpeechBubblePage() {
     const [isComplete, setIsComplete] = useState(false)
     const [isStreaming, setIsStreaming] = useState(false)
     const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+    const isStreamingRef = useRef<boolean>(false)
 
     useEffect(() => {
         window.ipc.on('ghost-message-loading', (isLoading: boolean) => {
-            setIsMessageLoading(isLoading)
-            setIsComplete(false)
-            setDisplayText('')
-            setIsStreaming(false)
+            if (isLoading) {
+                // Only reset when starting a new message
+                isStreamingRef.current = false;
+                setIsMessageLoading(isLoading)
+                setIsComplete(false)
+                setDisplayText('')
+                setIsStreaming(false)
+            }
+            // When isLoading is false, don't reset anything - message is complete
         })
 
         // New: Start streaming
         window.ipc.on('ghost-message-start-stream', () => {
             console.log('[Frontend] Streaming started');
+            isStreamingRef.current = true;
             setIsStreaming(true);
             setCharacterText('');
             setDisplayText('');
@@ -38,9 +45,10 @@ export default function SpeechBubblePage() {
                 clearTimeout(timeoutRef.current)
             }
 
-            // If not streaming, use traditional approach
-            if (!isStreaming) {
+            // Check ref instead of state to avoid closure issue
+            if (!isStreamingRef.current) {
                 setIsMessageLoading(false)
+                setDisplayText('')  // Reset for typing animation
                 if (message.error) {
                     if (message.error.name === 'ApiKeyNotDefinedError') {
                         setCharacterText("API Key가 없네요. 설정에서 API 키를 설정해주세요.")
@@ -51,10 +59,15 @@ export default function SpeechBubblePage() {
                     setCharacterText(message.message)
                 }
             } else {
-                // Streaming mode: just ensure final message is set
-                setIsStreaming(false);
+                // Streaming mode: finalize and trigger timeout
+                console.log('[SpeechBubble] Streaming finished, triggering timeout');
+                isStreamingRef.current = false;
                 setCharacterText(message.message);
                 setDisplayText(message.message);
+                setIsComplete(true);
+                setIsStreaming(false);
+                window.ipc.send('user-action', 'DISPLAY_TEXT_COMPLETE');
+                closeSpeechBubbleWithTimeout();
             }
         })
 
@@ -103,9 +116,17 @@ export default function SpeechBubblePage() {
     }, [])
 
     useEffect(() => {
+        console.log('[SpeechBubble] useEffect triggered:', {
+            isStreaming,
+            isMessageLoading,
+            displayTextLen: displayText.length,
+            characterTextLen: characterText.length
+        });
+
         // Skip typing effect for streaming mode (already displayed in real-time)
         if (isStreaming) {
             if (displayText.length > 0 && displayText.length === characterText.length) {
+                console.log('[SpeechBubble] Streaming complete, setting timeout');
                 setIsComplete(true);
                 window.ipc.send('user-action', 'DISPLAY_TEXT_COMPLETE');
                 closeSpeechBubbleWithTimeout();
@@ -119,6 +140,7 @@ export default function SpeechBubblePage() {
         }
 
         if (displayText.length === characterText.length) {
+            console.log('[SpeechBubble] Text display complete, setting timeout');
             setIsComplete(true)
             window.ipc.send('user-action', 'DISPLAY_TEXT_COMPLETE')
             closeSpeechBubbleWithTimeout()
@@ -153,7 +175,9 @@ export default function SpeechBubblePage() {
         if (timeoutRef.current) {
             clearTimeout(timeoutRef.current)
         }
+        console.log('[SpeechBubble] Setting 10s auto-close timeout');
         timeoutRef.current = setTimeout(() => {
+            console.log('[SpeechBubble] Auto-close timeout triggered');
             closeSpeechBubble()
         }, 10000)
     }
