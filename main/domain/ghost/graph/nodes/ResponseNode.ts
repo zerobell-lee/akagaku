@@ -101,10 +101,10 @@ export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>(
 
         try {
             console.log('[ResponseNode] Attempting streaming response');
-            streamingEvents.emitStreamStart(characterId);
 
             const streamingParser = new StreamingMessageParser();
             const stream = await conversationAgent.stream(payload);
+            let streamStartEmitted = false;
 
             for await (const chunk of stream) {
                 const content = typeof chunk.content === 'string'
@@ -112,6 +112,12 @@ export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>(
                     : JSON.stringify(chunk.content);
 
                 const parseResult = streamingParser.onChunk(content);
+
+                // Emit stream start only after first successful chunk parse
+                if (!streamStartEmitted && parseResult) {
+                    streamingEvents.emitStreamStart(characterId);
+                    streamStartEmitted = true;
+                }
 
                 if (parseResult && parseResult.type === 'message_chunk' && parseResult.messageChunk) {
                     streamingEvents.emitChunk(characterId, parseResult.messageChunk);
