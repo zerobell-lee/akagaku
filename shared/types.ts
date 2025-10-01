@@ -4,6 +4,7 @@ export interface CharacterProperties {
     character_height: number;
     graphics: CharacterGraphics[];
     touchable_areas: TouchableArea[];
+    skipGreeting?: boolean; // If true, don't trigger greeting on character load
 }
 
 export interface CharacterDisplayProperties {
@@ -141,10 +142,11 @@ export interface ChatLog {
 
 // Skin system types
 export interface SkinManifest {
+    manifest_version?: string; // Manifest schema version (e.g., "1.0"), defaults to "1.0" if not present
     skin_id: string;           // e.g., "default", "summer"
-    skin_name: string;         // Display name: "기본 스킨", "여름 스킨"
-    description: string;       // Skin description for AI context: "수영복을 입고 있다"
-    version: string;           // e.g., "1.0.0"
+    skin_name: string;         // Display name: "Default Skin", "Summer Skin"
+    description: string;       // Skin description for AI context: "wearing a swimsuit"
+    version: string;           // Skin content version (e.g., "1.0.0")
     author?: string;
     thumbnail?: string;        // Thumbnail image path
     created_at?: string;
@@ -153,4 +155,15 @@ export interface SkinManifest {
 export interface Skin {
     manifest: SkinManifest;
     appearance: CharacterAppearance;
+}
+
+export interface CharacterManifest {
+    manifest_version?: string; // Manifest schema version (e.g., "1.0"), defaults to "1.0" if not present
+    character_id: string;      // Unique character identifier
+    character_name: string;    // Display name for the character
+    description: string;       // Character description
+    thumbnail?: string;        // Thumbnail image path for character selection
+    author?: string;
+    created_at?: string;
+    version: string;           // Character content version (e.g., "1.0.0")
 }

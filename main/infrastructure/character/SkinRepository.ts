@@ -68,9 +68,10 @@ class YamlSkinRepository implements ISkinRepository {
 
     if (fs.existsSync(legacyAppearancePath)) {
       return [{
+        manifest_version: '1.0',
         skin_id: 'default',
-        skin_name: '기본 외형',
-        description: '평상시 입는 일반적인 옷',
+        skin_name: 'Default Appearance',
+        description: 'Standard everyday outfit',
         version: '1.0.0'
       }];
     }
@@ -110,16 +111,22 @@ class YamlSkinRepository implements ISkinRepository {
     const manifestPath = path.join(skinDir, 'manifest.yaml');
 
     if (fs.existsSync(manifestPath)) {
-      return yaml.load(fs.readFileSync(manifestPath, 'utf8')) as SkinManifest;
+      const manifest = yaml.load(fs.readFileSync(manifestPath, 'utf8')) as SkinManifest;
+      // Ensure manifest_version is set (default to "1.0" for backward compatibility)
+      if (!manifest.manifest_version) {
+        manifest.manifest_version = '1.0';
+      }
+      return manifest;
     }
 
     // If manifest doesn't exist but it's default skin, return default manifest
     if (skinId === 'default' && this.skinExists(characterId, skinId)) {
       logger.warn(`[SkinRepository] No manifest found for default skin, using fallback`);
       return {
+        manifest_version: '1.0',
         skin_id: 'default',
-        skin_name: '기본 외형',
-        description: '평상시 입는 일반적인 옷',
+        skin_name: 'Default Appearance',
+        description: 'Standard everyday outfit',
         version: '1.0.0'
       };
     }

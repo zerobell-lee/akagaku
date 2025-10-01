@@ -1,0 +1,7 @@
+manifest_version: "1.0"
+character_id: "minkee"
+character_name: "Minkee"
+description: "A friendly and curious desktop companion who loves to chat and help with daily tasks"
+version: "1.0.0"
+author: "Akagaku Team"
+created_at: "2024-01-01"

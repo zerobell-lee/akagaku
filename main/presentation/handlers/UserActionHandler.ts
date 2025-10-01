@@ -321,6 +321,25 @@ export class UserActionHandler {
   }
 
   /**
+   * Handle streaming complete event from renderer
+   * Called when streaming message display is finished
+   */
+  handleStreamingComplete(): void {
+    console.log('[UserActionHandler] Streaming complete received');
+    if (this.isAppExiting) {
+      console.log('[UserActionHandler] App is exiting, clearing timeout and setting 3s exit timer');
+      if (this.appExitTimeout) {
+        clearTimeout(this.appExitTimeout);
+        this.appExitTimeout = null;
+      }
+      setTimeout(() => {
+        console.log('[UserActionHandler] 3s timer elapsed, quitting app');
+        require('electron').app.quit();
+      }, 3000);
+    }
+  }
+
+  /**
    * Handle RESET_CHAT_HISTORY action
    * Resets chat history and initiates new greeting
    */
@@ -407,8 +426,8 @@ export class UserActionHandler {
   async handleOpenCharacterInfo(): Promise<void> {
     if (!this.characterInfoWindow) {
       this.characterInfoWindow = createWindow('character-info', {
-        width: 700,
-        height: 600,
+        width: 1000,
+        height: 800,
         transparent: false,
         frame: true,
         webPreferences: {
@@ -419,12 +438,51 @@ export class UserActionHandler {
       this.characterInfoWindow.setMenuBarVisibility(false);
       this.loadUrlOnBrowserWindow(this.characterInfoWindow, 'characterInfo');
 
+      // Send data after window is ready
+      this.characterInfoWindow.once('ready-to-show', async () => {
+        this.characterInfoWindow?.show();
+        // Wait a bit for React to mount
+        setTimeout(() => {
+          this.sendCharacterInfoData();
+        }, 100);
+      });
+
       this.characterInfoWindow.on('close', () => {
         this.characterInfoWindow = null;
       });
     } else {
       this.characterInfoWindow.show();
+      this.sendCharacterInfoData();
     }
+  }
+
+  /**
+   * Send character info data to window
+   */
+  private sendCharacterInfoData(): void {
+    if (!this.characterInfoWindow) return;
+
+    const listSkinsUseCase = new ListSkinsUseCase(skinRepository);
+    const skins = listSkinsUseCase.execute(this.characterName);
+    const activeSkinId = skinRepository.getActiveSkin(this.characterName);
+    const relationshipData = relationshipRepository.getCharacterRelationships(this.characterName);
+
+    console.log('[UserActionHandler] Sending character info:', {
+      characterName: this.characterName,
+      activeSkinId,
+      skinsCount: skins.length,
+      relationship: relationshipData
+    });
+
+    this.characterInfoWindow.webContents.send('character-info-response', {
+      characterName: this.characterName,
+      activeSkinId,
+      skins,
+      relationship: {
+        affection: relationshipData.affection_to_user,
+        attitude: relationshipData.attitude_to_user
+      }
+    });
   }
 
   /**
@@ -432,17 +490,7 @@ export class UserActionHandler {
    * Sends character info and skins to renderer
    */
   async handleGetCharacterInfo(): Promise<void> {
-    const listSkinsUseCase = new ListSkinsUseCase(skinRepository);
-    const skins = listSkinsUseCase.execute(this.characterName);
-    const activeSkinId = skinRepository.getActiveSkin(this.characterName);
-    const relationship = relationshipRepository.findByCharacterName(this.characterName);
-
-    this.characterInfoWindow?.webContents.send('character-info-response', {
-      characterName: this.characterName,
-      activeSkinId,
-      skins,
-      relationship: relationship.toRaw()
-    });
+    this.sendCharacterInfoData();
   }
 
   /**
@@ -462,8 +510,19 @@ export class UserActionHandler {
     const { characterRepository } = require('../../infrastructure/character/CharacterRepository');
     this.characterAppearance = characterRepository.getCharacterAppearance(this.characterName);
 
-    // Reload character graphics
-    await this.handleAppStarted();
+    // Reload character graphics without triggering greeting
+    const characterProperties: CharacterProperties = {
+      character_name: this.characterName,
+      character_width: this.characterAppearance.character_width,
+      character_height: this.characterAppearance.character_height,
+      graphics: this.characterAppearance.graphics.map(graphic => ({
+        emoticon: graphic.emoticon,
+        imgSrc: this.buildImagePath(graphic.imgSrc)
+      })),
+      touchable_areas: this.characterAppearance.touchable_areas,
+      skipGreeting: true, // Don't trigger greeting on skin change
+    };
+    this.mainWindow.webContents.send('character_loaded', characterProperties);
 
     // Send system message to ghost about skin change
     await this.handleUserMessage({

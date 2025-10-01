@@ -8,25 +8,44 @@ export default function HomePage() {
 
   useEffect(() => {
     console.log("HomePage useEffect")
-    window.ipc.on('character_loaded', (character: CharacterProperties) => {
-      console.log(character)
-      setCharacter(character)
-      window.ipc.send('user-action', 'CHARACTER_LOADED')
-    })
 
-    // Update emoticon immediately when parsed (before message completes)
-    window.ipc.on('ghost-emoticon', (emoticon: string) => {
+    const handleCharacterLoaded = (character: CharacterProperties) => {
+      console.log('[HomePage] Character loaded:', character);
+      setCharacter(character);
+
+      // Only trigger CHARACTER_LOADED if not a skin change
+      if (!character.skipGreeting) {
+        console.log('[HomePage] Sending CHARACTER_LOADED action');
+        window.ipc.send('user-action', 'CHARACTER_LOADED');
+      } else {
+        console.log('[HomePage] Skipping CHARACTER_LOADED (skin change)');
+      }
+    };
+
+    const handleGhostEmoticon = (emoticon: string) => {
       console.log('[Frontend] Emoticon received:', emoticon);
       setCharacterEmoticon(emoticon);
-    })
+    };
 
-    window.ipc.on('ghost-message', (message: GhostResponse) => {
+    const handleGhostMessage = (message: GhostResponse) => {
       if (message.error) {
-        setCharacterEmoticon("sad")
+        setCharacterEmoticon("sad");
       }
       // Don't update emoticon on message complete - already updated via ghost-emoticon event
-    })
+    };
+
+    window.ipc.on('character_loaded', handleCharacterLoaded);
+    window.ipc.on('ghost-emoticon', handleGhostEmoticon);
+    window.ipc.on('ghost-message', handleGhostMessage);
+
     window.ipc.send('user-action', 'APP_STARTED');
+
+    // Cleanup listeners on unmount
+    return () => {
+      window.ipc.removeListener('character_loaded', handleCharacterLoaded);
+      window.ipc.removeListener('ghost-emoticon', handleGhostEmoticon);
+      window.ipc.removeListener('ghost-message', handleGhostMessage);
+    };
   }, [])
 
   const calcCurrentGraphic = () => {

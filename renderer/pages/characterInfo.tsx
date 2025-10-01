@@ -15,14 +15,27 @@ export default function CharacterInfoPage() {
   const [characterInfo, setCharacterInfo] = useState<CharacterInfoData | null>(null);
 
   useEffect(() => {
-    // Request character info on mount
-    window.ipc.send('user-action', 'GET_CHARACTER_INFO');
+    console.log('[CharacterInfo] Component mounted, waiting for data...');
 
-    // Listen for response
-    window.ipc.on('character-info-response', (data: CharacterInfoData) => {
+    const handler = (data: CharacterInfoData) => {
       console.log('[CharacterInfo] Received data:', data);
       setCharacterInfo(data);
-    });
+    };
+
+    window.ipc.on('character-info-response', handler);
+
+    // Fallback: Request data if not received within 500ms
+    const timeoutId = setTimeout(() => {
+      if (!characterInfo) {
+        console.log('[CharacterInfo] No data received, requesting...');
+        window.ipc.send('user-action', 'GET_CHARACTER_INFO');
+      }
+    }, 500);
+
+    return () => {
+      clearTimeout(timeoutId);
+      window.ipc.removeListener('character-info-response', handler);
+    };
   }, []);
 
   const handleSkinChange = (skinId: string) => {
@@ -36,39 +49,39 @@ export default function CharacterInfoPage() {
   if (!characterInfo) {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
-        <p>Loading...</p>
+        <p className="text-2xl">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gray-900 text-white p-10">
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">{characterInfo.characterName}</h1>
-          <div className="text-gray-400">
-            <p>호감도: {characterInfo.relationship.affection}</p>
-            <p>태도: {characterInfo.relationship.attitude}</p>
+        <div className="mb-10">
+          <h1 className="text-5xl font-bold mb-4">{characterInfo.characterName}</h1>
+          <div className="text-gray-400 text-xl">
+            <p>Affection: {characterInfo.relationship.affection}</p>
+            <p>Attitude: {characterInfo.relationship.attitude}</p>
           </div>
         </div>
 
         {/* Skins Section */}
         <div>
-          <h2 className="text-2xl font-semibold mb-4">스킨 선택</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <h2 className="text-4xl font-semibold mb-6">Skins</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {characterInfo.skins.map((skin) => (
               <div
                 key={skin.skin_id}
-                className={`bg-gray-800 rounded-lg p-4 cursor-pointer transition-all hover:bg-gray-700 ${
+                className={`bg-gray-800 rounded-lg p-6 cursor-pointer transition-all hover:bg-gray-700 ${
                   skin.skin_id === characterInfo.activeSkinId
-                    ? 'ring-2 ring-blue-500'
+                    ? 'ring-4 ring-blue-500'
                     : ''
                 }`}
                 onClick={() => handleSkinChange(skin.skin_id)}
               >
                 {/* Thumbnail placeholder */}
-                <div className="w-full h-32 bg-gray-700 rounded-md mb-3 flex items-center justify-center">
+                <div className="w-full h-48 bg-gray-700 rounded-md mb-4 flex items-center justify-center">
                   {skin.thumbnail ? (
                     <img
                       src={`local-resource://character/${characterInfo.characterName}/skins/${skin.skin_id}/${skin.thumbnail}`}
@@ -76,21 +89,21 @@ export default function CharacterInfoPage() {
                       className="w-full h-full object-cover rounded-md"
                     />
                   ) : (
-                    <span className="text-gray-500">No Image</span>
+                    <span className="text-gray-500 text-xl">No Image</span>
                   )}
                 </div>
 
                 {/* Skin Info */}
                 <div>
-                  <h3 className="font-semibold text-lg mb-1">{skin.skin_name}</h3>
-                  <p className="text-sm text-gray-400 mb-2">{skin.description}</p>
-                  <div className="text-xs text-gray-500">
-                    <p>버전: {skin.version}</p>
-                    {skin.author && <p>제작자: {skin.author}</p>}
+                  <h3 className="font-semibold text-2xl mb-2">{skin.skin_name}</h3>
+                  <p className="text-base text-gray-400 mb-3">{skin.description}</p>
+                  <div className="text-sm text-gray-500">
+                    <p>Version: {skin.version}</p>
+                    {skin.author && <p>Author: {skin.author}</p>}
                   </div>
                   {skin.skin_id === characterInfo.activeSkinId && (
-                    <div className="mt-2 text-blue-400 text-sm font-semibold">
-                      ✓ 현재 적용 중
+                    <div className="mt-3 text-blue-400 text-base font-semibold">
+                      ✓ Active
                     </div>
                   )}
                 </div>

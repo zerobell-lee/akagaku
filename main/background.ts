@@ -456,6 +456,11 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     await userActionHandler.handleChangeSkin(skinId);
   })
 
+  // Streaming complete IPC handler
+  ipcMain.on('streaming-complete', () => {
+    userActionHandler.handleStreamingComplete();
+  })
+
   mainWindow.on('close', () => {
     // Stop trigger manager on app close
     triggerManager.stop();

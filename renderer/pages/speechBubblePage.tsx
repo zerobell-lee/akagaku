@@ -14,6 +14,12 @@ export default function SpeechBubblePage() {
     useEffect(() => {
         window.ipc.on('ghost-message-loading', (isLoading: boolean) => {
             if (isLoading) {
+                // Clear any existing timeout when new message starts loading
+                if (timeoutRef.current) {
+                    console.log('[SpeechBubble] Clearing previous timeout on new message loading');
+                    clearTimeout(timeoutRef.current);
+                    timeoutRef.current = null;
+                }
                 // Only reset when starting a new message
                 isStreamingRef.current = false;
                 setIsMessageLoading(isLoading)
@@ -27,11 +33,18 @@ export default function SpeechBubblePage() {
         // New: Start streaming
         window.ipc.on('ghost-message-start-stream', () => {
             console.log('[Frontend] Streaming started');
+            // Clear any existing timeout when streaming starts
+            if (timeoutRef.current) {
+                console.log('[SpeechBubble] Clearing previous timeout on streaming start');
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+            }
             isStreamingRef.current = true;
             setIsStreaming(true);
             setCharacterText('');
             setDisplayText('');
             setIsMessageLoading(false); // Show UI immediately
+            setIsComplete(false); // Reset completion state
         });
 
         // New: Receive streaming chunks
@@ -60,13 +73,14 @@ export default function SpeechBubblePage() {
                 }
             } else {
                 // Streaming mode: finalize and trigger timeout
-                console.log('[SpeechBubble] Streaming finished, triggering timeout');
+                console.log('[SpeechBubble] Streaming finished');
                 isStreamingRef.current = false;
                 setCharacterText(message.message);
                 setDisplayText(message.message);
                 setIsComplete(true);
                 setIsStreaming(false);
-                window.ipc.send('user-action', 'DISPLAY_TEXT_COMPLETE');
+                // Send streaming complete event to main process
+                window.ipc.send('streaming-complete');
                 closeSpeechBubbleWithTimeout();
             }
         })
@@ -125,12 +139,7 @@ export default function SpeechBubblePage() {
 
         // Skip typing effect for streaming mode (already displayed in real-time)
         if (isStreaming) {
-            if (displayText.length > 0 && displayText.length === characterText.length) {
-                console.log('[SpeechBubble] Streaming complete, setting timeout');
-                setIsComplete(true);
-                window.ipc.send('user-action', 'DISPLAY_TEXT_COMPLETE');
-                closeSpeechBubbleWithTimeout();
-            }
+            // Streaming completion is handled in ghost-message event
             return;
         }
 
@@ -140,9 +149,8 @@ export default function SpeechBubblePage() {
         }
 
         if (displayText.length === characterText.length) {
-            console.log('[SpeechBubble] Text display complete, setting timeout');
+            console.log('[SpeechBubble] Text display complete (non-streaming)');
             setIsComplete(true)
-            window.ipc.send('user-action', 'DISPLAY_TEXT_COMPLETE')
             closeSpeechBubbleWithTimeout()
             return
         }
