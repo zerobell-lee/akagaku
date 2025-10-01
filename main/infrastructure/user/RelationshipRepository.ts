@@ -19,33 +19,35 @@ export type Relationship = {
 }
 
 class ElectronStoreRelationshipRepository implements IRelationshipRepository {
-    private character_relationships: Relationship[];
+    private character_relationships: Relationship[] | null = null;
 
-    constructor() {
-        this.character_relationships = (() => {
+    private ensureInitialized(): void {
+        if (this.character_relationships === null) {
             if (getRelationshipStore().has('relationship')) {
-                return getRelationshipStore().get('relationship') as Relationship[];
+                this.character_relationships = getRelationshipStore().get('relationship') as Relationship[];
             } else {
-                return [];
+                this.character_relationships = [];
             }
-        })();
+        }
     }
 
     getCharacterRelationships(character_name: string): Relationship {
-        let character_relationship = this.character_relationships.find((relationship: Relationship) => relationship.character === character_name);
+        this.ensureInitialized();
+        let character_relationship = this.character_relationships!.find((relationship: Relationship) => relationship.character === character_name);
         if (!character_relationship) {
             character_relationship = {
                 character: character_name,
                 affection_to_user: 50,
                 attitude_to_user: "neutral"
             };
-            this.character_relationships.push(character_relationship);
+            this.character_relationships!.push(character_relationship);
         }
         return character_relationship;
     }
 
     async updateCharacterRelationships(character_name: string, affection_to_user: number, attitude_to_user: string): Promise<Relationship> {
-        const character_relationship = this.character_relationships.find((relationship: Relationship) => relationship.character === character_name);
+        this.ensureInitialized();
+        const character_relationship = this.character_relationships!.find((relationship: Relationship) => relationship.character === character_name);
         if (!character_relationship) {
             throw new Error(`Character relationship not found for ${character_name}`);
         }
@@ -56,7 +58,7 @@ class ElectronStoreRelationshipRepository implements IRelationshipRepository {
     }
 }
 
-// Singleton instance
+// Singleton instance - but initialization is lazy
 const relationshipRepository = new ElectronStoreRelationshipRepository();
 
 // Backward compatibility - keep old interface
