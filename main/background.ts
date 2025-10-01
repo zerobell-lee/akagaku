@@ -20,6 +20,8 @@ import { ScheduleToolMetadata, createScheduleTool } from './domain/tools/definit
 import { streamingEvents } from './domain/ghost/graph/utils/StreamingEventEmitter'
 import { UserActionHandler } from './presentation/handlers/UserActionHandler'
 import { ConfigHandler } from './presentation/handlers/ConfigHandler'
+import { TriggerManager } from './domain/services/TriggerManager'
+import { triggerRegistry } from './infrastructure/triggers/TriggerRegistry'
 
 
 // app.commandLine.appendSwitch('high-dpi-support', '1');
@@ -260,7 +262,33 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
   let startMouse = null;
   let startWindow: { x: number, y: number } | null = null;
 
-  let chitChatTimeout: NodeJS.Timeout | null = null;
+  // Initialize TriggerManager
+  const triggerManager = new TriggerManager(60000); // Check every minute
+  const triggers = triggerRegistry.createDefaultTriggers();
+  triggers.forEach(trigger => triggerManager.registerTrigger(trigger));
+
+  // Set up trigger callback to send system messages to ghost
+  triggerManager.setOnTriggerFire(async (message, triggerId) => {
+    console.log(`[TriggerManager] Trigger ${triggerId} fired, sending message to ghost`);
+    try {
+      await userActionHandler.handleUserMessage({
+        input: message,
+        isSystemMessage: true
+      });
+    } catch (error) {
+      console.error(`[TriggerManager] Failed to send trigger message:`, error);
+    }
+  });
+
+  // Start trigger manager after character loads
+  userActionHandler.setOnCharacterLoaded(() => {
+    console.log('[TriggerManager] Starting trigger manager');
+    triggerManager.start({
+      lastInteractionTime: userActionHandler.getLastInteractionTime(),
+      characterId: characterName,
+      metadata: {}
+    });
+  });
 
   // Setup streaming event listeners
   streamingEvents.on('stream-start', ({ characterId }) => {
@@ -396,6 +424,8 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
   })
 
   mainWindow.on('close', () => {
+    // Stop trigger manager on app close
+    triggerManager.stop();
     app.quit()
   })
 })()

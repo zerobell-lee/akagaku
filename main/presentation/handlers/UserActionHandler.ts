@@ -36,6 +36,8 @@ export class UserActionHandler {
   private streamHasStarted = false;
   private appExitTimeout: NodeJS.Timeout | null = null;
   private isAppExiting = false;
+  private lastInteractionTime: Date = new Date();
+  private onCharacterLoadedCallback: (() => void) | null = null;
 
   constructor({
     mainWindow,
@@ -90,12 +92,32 @@ export class UserActionHandler {
     return this.ghostIsProcessingMessage;
   }
 
+  getLastInteractionTime(): Date {
+    return this.lastInteractionTime;
+  }
+
   setStreamHasStarted(value: boolean): void {
     this.streamHasStarted = value;
   }
 
   setIsAppExiting(value: boolean): void {
     this.isAppExiting = value;
+  }
+
+  /**
+   * Update last interaction time
+   * Should be called after any user interaction with the ghost
+   */
+  updateLastInteraction(): void {
+    this.lastInteractionTime = new Date();
+  }
+
+  /**
+   * Set callback to be called when character is loaded
+   * Used to start trigger manager
+   */
+  setOnCharacterLoaded(callback: () => void): void {
+    this.onCharacterLoadedCallback = callback;
   }
 
   getIsAppExiting(): boolean {
@@ -133,6 +155,11 @@ export class UserActionHandler {
    */
   async handleCharacterLoaded(): Promise<void> {
     await this.sendGhostMessage((g) => g.sayHello());
+
+    // Trigger callback after character is loaded (e.g., start trigger manager)
+    if (this.onCharacterLoadedCallback) {
+      this.onCharacterLoadedCallback();
+    }
   }
 
   /**
@@ -609,6 +636,12 @@ export class UserActionHandler {
   async handleUserMessage(message: { input: string; isSystemMessage: boolean }): Promise<void> {
     // Close input first, then process message
     this.closeUserChatInputWindow();
+
+    // Update last interaction time for non-system messages
+    if (!message.isSystemMessage) {
+      this.updateLastInteraction();
+    }
+
     await this.sendGhostMessage((g) => g.sendRawMessage(message));
   }
 }
