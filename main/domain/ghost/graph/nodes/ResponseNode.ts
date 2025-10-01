@@ -13,6 +13,7 @@ import { PerformanceMonitor } from "../utils/PerformanceMonitor";
 import { StreamingMessageParser } from "main/infrastructure/message/StreamingMessageParser";
 import { streamingEvents } from "../utils/StreamingEventEmitter";
 import { GhostResponse } from "@shared/types";
+import { findEmoticonWithFallback } from "main/infrastructure/utils/EmoticonMatcher";
 
 const getCurrentTimestamp = (sentAt: Date) => {
     return formatDatetime(sentAt);
@@ -106,6 +107,9 @@ export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>(
             const stream = await conversationAgent.stream(payload);
             let streamStartEmitted = false;
 
+            // Extract available emoticons for fuzzy matching
+            const availableEmoticons: string[] = character_setting.available_emoticon || ['neutral'];
+
             for await (const chunk of stream) {
                 const content = typeof chunk.content === 'string'
                     ? chunk.content
@@ -119,8 +123,21 @@ export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>(
                     streamStartEmitted = true;
                 }
 
-                if (parseResult && parseResult.type === 'message_chunk' && parseResult.messageChunk) {
-                    streamingEvents.emitChunk(characterId, parseResult.messageChunk);
+                if (parseResult) {
+                    // Emit emoticon immediately when parsed with fuzzy matching
+                    if (parseResult.type === 'metadata' && parseResult.emoticon) {
+                        const matchedEmoticon = findEmoticonWithFallback(
+                            parseResult.emoticon,
+                            availableEmoticons,
+                            0.6
+                        );
+                        streamingEvents.emit('emoticon-parsed', { characterId, emoticon: matchedEmoticon });
+                    }
+
+                    // Emit message chunks
+                    if (parseResult.type === 'message_chunk' && parseResult.messageChunk) {
+                        streamingEvents.emitChunk(characterId, parseResult.messageChunk);
+                    }
                 }
             }
 

@@ -267,7 +267,7 @@ export default function Config() {
                 {/* Toggle between dropdown and custom input */}
                 {recommendedModels.length > 0 && (
                     <button
-                        className="text-blue-400 hover:text-blue-300 text-sm text-left"
+                        className="text-blue-400 hover:text-blue-300 text-base text-left"
                         onClick={() => {
                             setUseCustomModel(!useCustomModel);
                             if (!useCustomModel) {
@@ -289,7 +289,7 @@ export default function Config() {
                     />
                 )}
 
-                <span className="text-sm text-gray-400">Current: {effectiveModelName}</span>
+                <span className="text-base text-gray-400">Current: {effectiveModelName}</span>
             </label>
 
             {/* Temperature */}
@@ -351,7 +351,7 @@ export default function Config() {
                                 value={customBaseURL}
                                 onChange={(e) => setCustomBaseURL(e.target.value)}
                             />
-                            <span className="text-sm text-gray-400">
+                            <span className="text-base text-gray-400">
                                 For custom endpoints, proxies, or local LLMs (e.g., LM Studio, Ollama)
                             </span>
                         </label>
@@ -375,10 +375,10 @@ export default function Config() {
                     min="5"
                     max="100"
                 />
-                <span className="text-sm text-gray-400">
+                <span className="text-base text-gray-400">
                     Number of recent messages sent to LLM (default: 20). Lower = faster response & lower cost. Higher = better context.
                 </span>
-                <span className="text-xs text-yellow-400">
+                <span className="text-base text-yellow-400">
                     ⚠️ High values (50+) can cause slow responses (8+ seconds). Recommended: 15-30 for balance.
                 </span>
             </label>
@@ -397,7 +397,7 @@ export default function Config() {
                     />
                     <div className="flex flex-col flex-1">
                         <span className="text-lg">Auto Summarization</span>
-                        <span className="text-sm text-gray-400">
+                        <span className="text-base text-gray-400">
                             Automatically summarize long conversations to reduce token usage
                         </span>
                     </div>
@@ -416,7 +416,7 @@ export default function Config() {
                             min="20"
                             max="100"
                         />
-                        <span className="text-sm text-gray-400">
+                        <span className="text-base text-gray-400">
                             Summarize when message count exceeds this number (default: 40)
                         </span>
                     </label>
@@ -432,7 +432,7 @@ export default function Config() {
                     />
                     <div className="flex flex-col">
                         <span className="text-lg">Use Lightweight Models</span>
-                        <span className="text-sm text-gray-400">
+                        <span className="text-base text-gray-400">
                             Use faster, cheaper models (gpt-4o-mini, claude-haiku) for tool calls and summarization
                         </span>
                     </div>
@@ -448,7 +448,7 @@ export default function Config() {
                 >
                     Reset Chat History
                 </button>
-                <span className="text-sm text-gray-400 block mt-2">
+                <span className="text-base text-gray-400 block mt-2">
                     Warning: This will permanently delete all conversation history
                 </span>
             </div>
@@ -467,7 +467,7 @@ export default function Config() {
         return (
             <div className="space-y-4">
                 <div className="bg-gray-700/50 rounded-lg p-4 mb-4">
-                    <p className="text-sm text-gray-300">
+                    <p className="text-base text-gray-300">
                         Enable the tools you want to use. Each tool may require additional configuration.
                     </p>
                 </div>
@@ -499,7 +499,7 @@ export default function Config() {
                                         />
                                         <div className="flex flex-col flex-1">
                                             <span className="text-lg">{tool.name}</span>
-                                            <span className="text-sm text-gray-400">{tool.description}</span>
+                                            <span className="text-base text-gray-400">{tool.description}</span>
                                         </div>
                                     </label>
 
@@ -542,7 +542,7 @@ export default function Config() {
                     onChange={(e) => setDisplayScale(Number(e.target.value))}
                     className="bg-gray-700 px-4 py-2 rounded-md"
                 />
-                <span className="text-sm text-gray-400">
+                <span className="text-base text-gray-400">
                     Adjust app zoom level. macOS Retina: 50%, Windows/Linux: 100%. Requires restart.
                 </span>
             </label>
@@ -557,7 +557,7 @@ export default function Config() {
                     className="bg-gray-700 text-white px-4 py-2 rounded-md"
                     style={{width: '150px'}}
                 />
-                <span className="text-sm text-gray-400">
+                <span className="text-base text-gray-400">
                     Width in pixels. Default: 500. Requires restart.
                 </span>
             </label>
@@ -579,7 +579,7 @@ export default function Config() {
                             <option key={font} value={font}>{font}</option>
                         ))}
                     </select>
-                    <span className="text-sm text-gray-400">
+                    <span className="text-base text-gray-400">
                         Select font for speech bubble text
                     </span>
                     {/* Font Preview */}
@@ -606,7 +606,7 @@ export default function Config() {
                         min="10"
                         max="32"
                     />
-                    <span className="text-sm text-gray-400">
+                    <span className="text-base text-gray-400">
                         Font size in pixels. Default: 16
                     </span>
                 </label>
@@ -625,7 +625,7 @@ export default function Config() {
   text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
 }"
                     />
-                    <span className="text-sm text-gray-400">
+                    <span className="text-base text-gray-400">
                         Advanced: Add custom CSS rules to override speech bubble styling
                     </span>
                 </label>
@@ -636,7 +636,7 @@ export default function Config() {
     const renderDevelopersTab = () => (
         <div className="space-y-4">
             <div className="bg-yellow-900/30 border border-yellow-600/50 rounded-lg p-4 mb-4">
-                <p className="text-yellow-200 text-sm">
+                <p className="text-yellow-200 text-base">
                     ⚠️ Developer settings for debugging and performance monitoring. LangSmith tracing helps identify slow response times.
                 </p>
             </div>
@@ -651,7 +651,7 @@ export default function Config() {
                 />
                 <div className="flex flex-col flex-1">
                     <span className="text-lg">Enable LangSmith Tracing</span>
-                    <span className="text-sm text-gray-400">
+                    <span className="text-base text-gray-400">
                         Track LLM calls, latency, and token usage. Requires LangSmith API key.
                     </span>
                 </div>
@@ -666,7 +666,7 @@ export default function Config() {
                             value={langsmithApiKey}
                             onChange={(value) => setLangsmithApiKey(value)}
                         />
-                        <span className="text-sm text-gray-400">
+                        <span className="text-base text-gray-400">
                             Get your API key from <a href="https://smith.langchain.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">smith.langchain.com</a>
                         </span>
                     </label>
@@ -681,7 +681,7 @@ export default function Config() {
                             className="bg-gray-700 text-white px-4 py-2 rounded-md"
                             placeholder="akagaku"
                         />
-                        <span className="text-sm text-gray-400">
+                        <span className="text-base text-gray-400">
                             LangSmith project for organizing traces. Default: "akagaku"
                         </span>
                     </label>
@@ -691,7 +691,7 @@ export default function Config() {
             {/* Performance Monitoring Info */}
             <div className="bg-gray-700/50 rounded-lg p-4 mt-6">
                 <h3 className="text-lg font-semibold mb-2">Performance Debugging Tips</h3>
-                <ul className="text-sm text-gray-300 space-y-2 list-disc list-inside">
+                <ul className="text-base text-gray-300 space-y-2 list-disc list-inside">
                     <li>Enable LangSmith to see detailed timing for each LLM call and tool execution</li>
                     <li>Check console logs for [Performance] markers showing execution times</li>
                     <li>Long response times often caused by: tool execution, summarization, or slow LLM API</li>
@@ -702,7 +702,7 @@ export default function Config() {
     );
 
     return (
-        <div className="config-page bg-gray-800 text-white h-screen w-screen flex">
+        <div className="config-page bg-gray-800 text-white h-screen w-screen flex" style={{ fontSize: '18px' }}>
             {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage('')} />}
 
             {/* Left Sidebar */}

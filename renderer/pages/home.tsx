@@ -13,12 +13,18 @@ export default function HomePage() {
       setCharacter(character)
       window.ipc.send('user-action', 'CHARACTER_LOADED')
     })
+
+    // Update emoticon immediately when parsed (before message completes)
+    window.ipc.on('ghost-emoticon', (emoticon: string) => {
+      console.log('[Frontend] Emoticon received:', emoticon);
+      setCharacterEmoticon(emoticon);
+    })
+
     window.ipc.on('ghost-message', (message: GhostResponse) => {
       if (message.error) {
         setCharacterEmoticon("sad")
-      } else {
-        setCharacterEmoticon(message.emoticon)
       }
+      // Don't update emoticon on message complete - already updated via ghost-emoticon event
     })
     window.ipc.send('user-action', 'APP_STARTED');
   }, [])
