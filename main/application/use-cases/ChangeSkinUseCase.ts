@@ -41,7 +41,7 @@ export class ChangeSkinUseCase {
     const newSkinManifest = this.skinRepository.getSkinManifest(characterId, skinId);
 
     // Generate trigger message for AI
-    const triggerMessage = `User just changed your outfit. You are now wearing: ${newSkinManifest.description}. React to your new appearance.`;
+    const triggerMessage = `User just changed your outfit. You are now wearing: ${newSkinManifest.skin_name}\ndescription : ${newSkinManifest.description}.\nReact to your new appearance.`;
 
     return {
       success: true,
