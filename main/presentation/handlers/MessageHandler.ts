@@ -13,6 +13,9 @@ import { logger } from '../../infrastructure/config/logger';
  */
 export class MessageHandler implements IIPCHandler {
   private userActionHandler: UserActionHandler;
+  private lastMessageHash = '';
+  private lastMessageTime = 0;
+  private readonly DEBOUNCE_MS = 300; // 300ms debounce window
 
   constructor(userActionHandler: UserActionHandler) {
     this.userActionHandler = userActionHandler;
@@ -43,7 +46,25 @@ export class MessageHandler implements IIPCHandler {
    * Handle user message
    */
   private async handleUserMessage(message: UserInput): Promise<void> {
-    logger.debug('[MessageHandler] Received user message:', message);
+    // Create hash from message content
+    const messageHash = `${message.input}-${message.isSystemMessage}`;
+    const now = Date.now();
+
+    // Ignore duplicate messages within debounce window
+    if (messageHash === this.lastMessageHash && (now - this.lastMessageTime) < this.DEBOUNCE_MS) {
+      console.log('[IPC] Duplicate message ignored (debounce):', message.input.substring(0, 50));
+      return;
+    }
+
+    // Ignore if already processing a message
+    if (this.userActionHandler.getGhostIsProcessingMessage()) {
+      console.log('[IPC] Message ignored (already processing):', message.input.substring(0, 50));
+      return;
+    }
+
+    this.lastMessageHash = messageHash;
+    this.lastMessageTime = now;
+
     await this.userActionHandler.handleUserMessage(message);
   }
 

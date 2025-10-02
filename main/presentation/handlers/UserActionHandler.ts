@@ -77,6 +77,22 @@ export class UserActionHandler implements IIPCHandler {
     this.isProd = isProd;
   }
 
+  /**
+   * Update display scale at runtime
+   */
+  updateDisplayScale(newScale: number): void {
+    this.displayScale = newScale;
+    logger.debug('[UserActionHandler] Display scale updated to:', newScale);
+  }
+
+  /**
+   * Update speech bubble width at runtime
+   */
+  updateSpeechBubbleWidth(newWidth: number): void {
+    this.speechBubbleWidth = newWidth;
+    logger.debug('[UserActionHandler] Speech bubble width updated to:', newWidth);
+  }
+
   // Getters for external window access
   getSpeechBubbleWindow(): BrowserWindow | null {
     return this.speechBubbleWindow;
@@ -379,8 +395,8 @@ export class UserActionHandler implements IIPCHandler {
   async handleOpenLog(): Promise<void> {
     if (!this.logsWindow) {
       this.logsWindow = createWindow('logs', {
-        width: 1000,
-        height: 750,
+        width: 1400,
+        height: 800,
         transparent: false,
         frame: true,
         webPreferences: {

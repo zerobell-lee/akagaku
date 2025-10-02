@@ -45,6 +45,17 @@ let ghost: GhostService;
 let characterName: string;
 let displayScale: number;
 let speechBubbleWidth: number;
+
+// Setter functions for runtime updates
+export function setDisplayScale(scale: number): void {
+  displayScale = scale;
+  logger.debug('[background] displayScale updated to:', scale);
+}
+
+export function setSpeechBubbleWidth(width: number): void {
+  speechBubbleWidth = width;
+  logger.debug('[background] speechBubbleWidth updated to:', width);
+}
 let toolRegistry: ToolRegistry;
 let toolConfigRepository: ToolConfigRepository;
 

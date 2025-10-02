@@ -103,11 +103,11 @@ export class WindowEventHandler implements IIPCHandler {
 
     // Save window position
     this.configRepository.setConfig('windowPosition', { x, y });
-    logger.info('[WindowEventHandler] Saved position:', { x, y });
+    console.log('[Window] Saved position:', { x, y });
 
     // Check if character is off-screen (more than 30% hidden)
     const visiblePercentage = this.calculateVisiblePercentage(x, y, width, height);
-    logger.debug('[WindowEventHandler] Visible percentage:', visiblePercentage);
+    console.log('[Window] Visible percentage:', visiblePercentage);
 
     const isOffScreen = visiblePercentage < 70;
 
@@ -154,7 +154,7 @@ export class WindowEventHandler implements IIPCHandler {
    * Trigger character reaction when moved off-screen
    */
   private async triggerOffScreenReaction(visiblePercentage: number): Promise<void> {
-    logger.info('[WindowEventHandler] Character is now off-screen, triggering reaction');
+    console.log('[Window] Character is now off-screen, triggering reaction');
     const instruction = `User just dragged you to the edge of the screen. Only ${visiblePercentage.toFixed(
       1
     )}% of your body is visible on screen. You are partially hidden/cut off. React to this situation - complain, express confusion, or ask why they're hiding you. Keep it brief and in character.`;
@@ -169,7 +169,7 @@ export class WindowEventHandler implements IIPCHandler {
    * Trigger character reaction when brought back on-screen
    */
   private async triggerOnScreenReaction(visiblePercentage: number): Promise<void> {
-    logger.info('[WindowEventHandler] Character is now back on screen, triggering reaction');
+    console.log('[Window] Character is now back on screen, triggering reaction');
     const instruction = `User just dragged you back to a visible position. You are now ${visiblePercentage.toFixed(
       1
     )}% visible on screen again. React to being brought back into view - express relief, make a sarcastic comment, or acknowledge the change. Keep it brief and in character.`;

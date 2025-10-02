@@ -1,8 +1,7 @@
-import { useState } from "react";
-import { useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface ChatLog {
-    timestamp: string;
+    createdAt: Date | string;
     role: string;
     content: string;
 }
@@ -23,9 +22,15 @@ export default function Logs() {
     const [archives, setArchives] = useState<Archive[]>([])
     const [currentView, setCurrentView] = useState<string>('current')
     const [stats, setStats] = useState<MessageStats | null>(null)
+    const logsEndRef = useRef<HTMLDivElement>(null)
+
+    // Auto-scroll to bottom when logs change
+    useEffect(() => {
+        logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, [logs])
 
     useEffect(() => {
-        window.ipc.on('receive_chatlogs', (data: ChatLog[] | { current: ChatLog[], archives: Archive[], stats?: MessageStats }) => {
+        const unsubscribe1 = window.ipc.on('receive_chatlogs', (data: ChatLog[] | { current: ChatLog[], archives: Archive[], stats?: MessageStats }) => {
             // Handle both old format (array) and new format (object with current/archives)
             if (Array.isArray(data)) {
                 // Old format: just an array of logs
@@ -41,12 +46,17 @@ export default function Logs() {
             console.log('Received chatlogs:', data)
         })
 
-        window.ipc.on('receive_archive_logs', (archiveLogs: ChatLog[]) => {
+        const unsubscribe2 = window.ipc.on('receive_archive_logs', (archiveLogs: ChatLog[]) => {
             setLogs(archiveLogs || [])
             console.log('Received archive logs:', archiveLogs)
         })
 
         window.ipc.send('user-action', 'LOG_OPENED')
+
+        return () => {
+            unsubscribe1()
+            unsubscribe2()
+        }
     }, [])
 
     const clearLogs = () => {
@@ -67,10 +77,9 @@ export default function Logs() {
         }
     }
 
-    const formatTimestamp = (timestamp: string) => {
-        const date = new Date(parseInt(timestamp))
+    const formatTimestamp = (timestamp: Date | string) => {
+        const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp
         return date.toLocaleString('ko-KR', {
-            year: 'numeric',
             month: '2-digit',
             day: '2-digit',
             hour: '2-digit',
@@ -124,13 +133,19 @@ export default function Logs() {
                 {logs.length === 0 ? (
                     <div className="text-center text-gray-500 py-8">No messages</div>
                 ) : (
-                    logs.map((log, index) => (
-                        <div className="flex flex-row gap-2 py-2 bg-gray-900 border-b border-gray-800 hover:bg-gray-800 hover:text-white" key={index}>
-                            <div className="text-lg text-gray-500 w-[20%] text-center">{log.timestamp}</div>
-                            <div className="text-lg text-gray-500 w-[15%] text-center">{log.role}</div>
-                            <div className="text-lg text-gray-300 w-[65%] overflow-hidden text-ellipsis whitespace-normal">{log.content}</div>
-                        </div>
-                    ))
+                    <>
+                        {logs.map((log, index) => (
+                            <div className="flex flex-row gap-4 py-4 bg-gray-900 border-b border-gray-800 hover:bg-gray-800 hover:text-white" key={index}>
+                                <div className="shrink-0 min-w-[120px] flex flex-col items-center justify-center gap-1">
+                                    <div className="text-2xl text-gray-300 font-semibold">{log.role}</div>
+                                    <div className="text-xs text-gray-500">{formatTimestamp(log.createdAt)}</div>
+                                </div>
+                                <div className="w-px bg-gray-700 shrink-0"></div>
+                                <div className="text-3xl text-gray-100 flex-1 whitespace-pre-wrap break-words leading-relaxed">{log.content}</div>
+                            </div>
+                        ))}
+                        <div ref={logsEndRef} />
+                    </>
                 )}
             </div>
 

@@ -30,14 +30,16 @@ export class IPCRegistry {
     }
 
     const eventNames = handler.getEventNames();
+    const invokeEventNames = (handler as any).getInvokeEventNames?.() || [];
+    const allEventNames = [...eventNames, ...invokeEventNames];
 
     // Validate handler
-    if (eventNames.length === 0) {
+    if (allEventNames.length === 0) {
       throw new Error('[IPCRegistry] Handler must handle at least one event');
     }
 
     // Check for duplicate registrations
-    for (const eventName of eventNames) {
+    for (const eventName of allEventNames) {
       if (this.registeredEvents.has(eventName)) {
         const existingHandler = this.handlers.get(eventName);
         throw new Error(
@@ -67,11 +69,15 @@ export class IPCRegistry {
 
     // Bind all registered events to ipcMain
     this.handlers.forEach((handler, eventName) => {
-      // Check if this is an invoke event (handler has handleInvoke method)
-      if (handler.handleInvoke && typeof handler.handleInvoke === 'function') {
+      // Check if this is an invoke event by checking if handler has getInvokeEventNames
+      const invokeEventNames = (handler as any).getInvokeEventNames?.() || [];
+      const isInvokeEvent = invokeEventNames.includes(eventName);
+
+      if (isInvokeEvent && handler.handleInvoke && typeof handler.handleInvoke === 'function') {
+        logger.debug(`[IPCRegistry] Registering INVOKE handler for: ${eventName}`);
         ipcMain.handle(eventName, async (event, ...args) => {
           try {
-            logger.debug(`[IPCRegistry] Handling invoke event: ${eventName}`);
+            logger.debug(`[IPCRegistry] INVOKE event received: ${eventName}`);
             return await handler.handleInvoke!(eventName, event, ...args);
           } catch (error) {
             logger.error(`[IPCRegistry] Error handling invoke event ${eventName}:`, error);
@@ -80,9 +86,10 @@ export class IPCRegistry {
         });
       } else {
         // Regular on event
+        logger.debug(`[IPCRegistry] Registering ON handler for: ${eventName}`);
         ipcMain.on(eventName, async (event, ...args) => {
           try {
-            logger.debug(`[IPCRegistry] Handling event: ${eventName}`);
+            logger.debug(`[IPCRegistry] ON event received: ${eventName}`);
             await handler.handle(eventName, event, ...args);
           } catch (error) {
             logger.error(`[IPCRegistry] Error handling event ${eventName}:`, error);

@@ -5,6 +5,7 @@ import { ToolConfigRepository } from '../../infrastructure/tools/ToolConfigRepos
 import { ToolRegistry } from '../../domain/services/ToolRegistry';
 import { UserActionHandler } from './UserActionHandler';
 import { IIPCHandler } from '../ipc/IIPCHandler';
+import { setDisplayScale, setSpeechBubbleWidth } from '../../background';
 
 /**
  * Configuration data transfer object
@@ -207,11 +208,15 @@ export class ConfigHandler implements IIPCHandler {
   private requiresRestart(config: ConfigData, previous: ReturnType<typeof this.getPreviousConfig>): boolean {
     if (config.displayScale !== undefined && previous.displayScale !== config.displayScale) {
       this.configRepository.setConfig('displayScale', config.displayScale);
+      this.userActionHandler.updateDisplayScale(config.displayScale);
+      setDisplayScale(config.displayScale);
       return true;
     }
 
     if (config.speechBubbleWidth !== undefined && previous.speechBubbleWidth !== config.speechBubbleWidth) {
       this.configRepository.setConfig('speechBubbleWidth', config.speechBubbleWidth);
+      this.userActionHandler.updateSpeechBubbleWidth(config.speechBubbleWidth);
+      setSpeechBubbleWidth(config.speechBubbleWidth);
       return true;
     }
 
@@ -323,11 +328,15 @@ export class ConfigHandler implements IIPCHandler {
 
   // IIPCHandler implementation
   getEventNames(): string[] {
-    return ['save_config', 'get-system-fonts', 'get-available-tools'];
+    return ['save_config'];
+  }
+
+  getInvokeEventNames(): string[] {
+    return ['get-system-fonts', 'get-available-tools'];
   }
 
   canHandle(eventName: string): boolean {
-    return this.getEventNames().includes(eventName);
+    return this.getEventNames().includes(eventName) || this.getInvokeEventNames().includes(eventName);
   }
 
   async handle(eventName: string, event: IpcMainEvent, ...args: any[]): Promise<void> {
