@@ -11,6 +11,7 @@ import { ListSkinsUseCase } from '../../application/use-cases/ListSkinsUseCase';
 import { ChangeSkinUseCase } from '../../application/use-cases/ChangeSkinUseCase';
 import { relationshipRepository } from '../../infrastructure/user/RelationshipRepository';
 import { IIPCHandler } from '../ipc/IIPCHandler';
+import { logger } from '../../infrastructure/config/logger';
 
 /**
  * UserActionHandler - Presentation layer handler for user actions

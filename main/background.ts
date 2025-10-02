@@ -22,6 +22,7 @@ import { UserActionHandler } from './presentation/handlers/UserActionHandler'
 import { ConfigHandler } from './presentation/handlers/ConfigHandler'
 import { TriggerManager } from './domain/services/TriggerManager'
 import { triggerRegistry } from './infrastructure/triggers/TriggerRegistry'
+import { logger } from './infrastructure/config/logger'
 
 
 // app.commandLine.appendSwitch('high-dpi-support', '1');
@@ -85,10 +86,9 @@ const isPositionVisible = (x: number, y: number, width: number, height: number):
 };
 
 const createGhostWindow = (characterAppearance: CharacterAppearance) => {
-  const screenWidth = screen.getPrimaryDisplay().workAreaSize.width
-  const screenHeight = screen.getPrimaryDisplay().workAreaSize.height
-  const scaledWidth = Math.floor(characterAppearance.character_width * displayScale);
-  const scaledHeight = Math.floor(characterAppearance.character_height * displayScale);
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const screenWidth = primaryDisplay.bounds.width;
+  const screenHeight = primaryDisplay.bounds.height;
 
   const ghostWindow = createWindow('main', {
     width: characterAppearance.character_width,
@@ -101,7 +101,20 @@ const createGhostWindow = (characterAppearance: CharacterAppearance) => {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
     },
-  }, displayScale, true)
+  }, displayScale, true)  // applyScaleToSize: true
+
+  // Window size is already scaled by createWindow
+  const scaledWidth = Math.floor(characterAppearance.character_width * displayScale);
+  const scaledHeight = Math.floor(characterAppearance.character_height * displayScale);
+
+  const actualBounds = ghostWindow.getBounds();
+  console.log('[Window] Character dimensions:', {
+    original: { width: characterAppearance.character_width, height: characterAppearance.character_height },
+    displayScale,
+    scaled: { width: scaledWidth, height: scaledHeight },
+    actualWindowBounds: actualBounds,
+    screenHeight
+  });
 
   // Try to load saved position
   const savedPosition = configRepository.getConfig('windowPosition') as { x: number; y: number } | undefined;
@@ -109,11 +122,11 @@ const createGhostWindow = (characterAppearance: CharacterAppearance) => {
   let finalX: number;
   let finalY: number;
 
-  if (savedPosition && isPositionVisible(savedPosition.x, savedPosition.y, scaledWidth, scaledHeight)) {
-    // Use saved position if it's still visible
+  if (savedPosition && isPositionVisible(savedPosition.x, 0, scaledWidth, scaledHeight)) {
+    // Use saved X position, but always pin to bottom of screen for Y
     finalX = savedPosition.x;
-    finalY = savedPosition.y;
-    console.log('[Window] Using saved position:', { x: finalX, y: finalY });
+    finalY = screenHeight - scaledHeight;
+    console.log('[Window] Using saved X position, bottom-aligned Y:', { x: finalX, y: finalY });
   } else {
     // Fall back to default position
     finalX = Math.floor(screenWidth * 0.8) - scaledWidth;
