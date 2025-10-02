@@ -22,7 +22,7 @@ export default function CharacterInfoPage() {
       setCharacterInfo(data);
     };
 
-    window.ipc.on('character-info-response', handler);
+    const unsubscribe = window.ipc.on('character-info-response', handler);
 
     // Fallback: Request data if not received within 500ms
     const timeoutId = setTimeout(() => {
@@ -34,7 +34,7 @@ export default function CharacterInfoPage() {
 
     return () => {
       clearTimeout(timeoutId);
-      window.ipc.removeListener('character-info-response', handler);
+      unsubscribe();
     };
   }, []);
 

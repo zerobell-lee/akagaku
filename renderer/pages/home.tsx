@@ -34,17 +34,17 @@ export default function HomePage() {
       // Don't update emoticon on message complete - already updated via ghost-emoticon event
     };
 
-    window.ipc.on('character_loaded', handleCharacterLoaded);
-    window.ipc.on('ghost-emoticon', handleGhostEmoticon);
-    window.ipc.on('ghost-message', handleGhostMessage);
+    const unsubscribe1 = window.ipc.on('character_loaded', handleCharacterLoaded);
+    const unsubscribe2 = window.ipc.on('ghost-emoticon', handleGhostEmoticon);
+    const unsubscribe3 = window.ipc.on('ghost-message', handleGhostMessage);
 
     window.ipc.send('user-action', 'APP_STARTED');
 
     // Cleanup listeners on unmount
     return () => {
-      window.ipc.removeListener('character_loaded', handleCharacterLoaded);
-      window.ipc.removeListener('ghost-emoticon', handleGhostEmoticon);
-      window.ipc.removeListener('ghost-message', handleGhostMessage);
+      unsubscribe1();
+      unsubscribe2();
+      unsubscribe3();
     };
   }, [])
 

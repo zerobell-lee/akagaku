@@ -1,0 +1,39 @@
+{
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended"
+  ],
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint"],
+  "root": true,
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "electron",
+            "importNames": ["ipcMain"],
+            "message": "❌ Do not import ipcMain directly. Use IPCRegistry and implement IIPCHandler interface instead. See main/presentation/ipc/IIPCHandler.ts"
+          }
+        ]
+      }
+    ],
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "MemberExpression[object.name='ipcMain'][property.name=/^(on|handle)$/]",
+        "message": "❌ Do not call ipcMain.on() or ipcMain.handle() directly. Create a handler implementing IIPCHandler and register it with IPCRegistry. See main/presentation/ipc/IPCRegistry.ts"
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["main/presentation/ipc/IPCRegistry.ts", "main/background.ts"],
+      "rules": {
+        "no-restricted-imports": "off",
+        "no-restricted-syntax": "off"
+      }
+    }
+  ]
+}

@@ -13,7 +13,7 @@ import { ToolRegistry } from './domain/services/ToolRegistry'
 import { ToolConfigRepository } from './infrastructure/tools/ToolConfigRepository'
 import { WeatherToolMetadata, createWeatherTool } from './domain/tools/definitions/WeatherTool'
 import { CryptoToolMetadata, createCryptoTool } from './domain/tools/definitions/CryptoTool'
-import { UserInfoToolMetadata, createUserInfoTool } from './domain/tools/definitions/UserTool'
+import { UserToolMetadata, createUserTool } from './domain/tools/definitions/UserTool'
 import { OpenUrlToolMetadata, createOpenUrlTool, BookmarksToolMetadata, createBookmarksTool } from './domain/tools/definitions/BrowserTool'
 import { InstalledAppsToolMetadata, createInstalledAppsTool, OpenAppToolMetadata, createOpenAppTool } from './domain/tools/definitions/AppTool'
 import { ScheduleToolMetadata, createScheduleTool } from './domain/tools/definitions/ScheduleTool'
@@ -150,7 +150,7 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
   // Register all tools with their factories
   toolRegistry.registerTool(WeatherToolMetadata, toolConfigRepository.getToolConfig('get_weather'), createWeatherTool);
   toolRegistry.registerTool(CryptoToolMetadata, toolConfigRepository.getToolConfig('get_crypto_price'), createCryptoTool);
-  toolRegistry.registerTool(UserInfoToolMetadata, toolConfigRepository.getToolConfig('get_user_info'), createUserInfoTool);
+  toolRegistry.registerTool(UserToolMetadata, toolConfigRepository.getToolConfig('get_user_info'), createUserTool);
   toolRegistry.registerTool(OpenUrlToolMetadata, toolConfigRepository.getToolConfig('open_url'), createOpenUrlTool);
   toolRegistry.registerTool(BookmarksToolMetadata, toolConfigRepository.getToolConfig('get_bookmarks'), createBookmarksTool);
   toolRegistry.registerTool(InstalledAppsToolMetadata, toolConfigRepository.getToolConfig('get_installed_apps'), createInstalledAppsTool);
@@ -324,8 +324,6 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     userActionHandler
   });
 
-  let startMouse = null;
-  let startWindow: { x: number, y: number } | null = null;
 
   // Initialize TriggerManager
   const triggerManager = new TriggerManager(60000); // Check every minute
@@ -406,152 +404,57 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     }
   });
 
-  // User action IPC handler - delegate to UserActionHandler
-  ipcMain.on('user-action', async (event, arg) => {
-    // Update ghost hidden state when moving to tray
-    if (arg === 'MOVE_TO_TRAY') {
+  // Import IPC infrastructure
+  const { IPCRegistry } = require('./presentation/ipc/IPCRegistry');
+  const { WindowEventHandler } = require('./presentation/handlers/WindowEventHandler');
+  const { MessageHandler } = require('./presentation/handlers/MessageHandler');
+  const { ArchiveHandler } = require('./presentation/handlers/ArchiveHandler');
+  const { CharacterHandler } = require('./presentation/handlers/CharacterHandler');
+
+  // Create specialized handlers
+  const windowEventHandler = new WindowEventHandler(
+    mainWindow,
+    configRepository,
+    userActionHandler
+  );
+
+  const messageHandler = new MessageHandler(userActionHandler);
+
+  const archiveHandler = new ArchiveHandler();
+  // Set logs window reference when it's created
+  const originalGetLogsWindow = userActionHandler.getLogsWindow.bind(userActionHandler);
+  userActionHandler.getLogsWindow = () => {
+    const logsWindow = originalGetLogsWindow();
+    if (logsWindow) {
+      archiveHandler.setLogsWindow(logsWindow);
+    }
+    return logsWindow;
+  };
+
+  const characterHandler = new CharacterHandler(userActionHandler);
+
+  // Register all handlers with IPCRegistry
+  IPCRegistry.instance.registerHandler(userActionHandler);
+  IPCRegistry.instance.registerHandler(configHandler);
+  IPCRegistry.instance.registerHandler(windowEventHandler);
+  IPCRegistry.instance.registerHandler(messageHandler);
+  IPCRegistry.instance.registerHandler(archiveHandler);
+  IPCRegistry.instance.registerHandler(characterHandler);
+
+  // Initialize registry (this binds all handlers to ipcMain)
+  IPCRegistry.instance.initialize(ipcMain);
+
+  // Log registered events
+  console.log('[IPCRegistry] Registered events:', IPCRegistry.instance.getRegisteredEvents());
+
+  // Handle MOVE_TO_TRAY state (temporary until TrayHandler is created)
+  const originalHandleAction = userActionHandler.handleAction.bind(userActionHandler);
+  userActionHandler.handleAction = async function(action: string) {
+    if (action === 'MOVE_TO_TRAY') {
       isGhostHidden = true;
     }
-    await userActionHandler.handleAction(arg);
-  })
-
-  ipcMain.on('drag-start', (event, arg) => {
-    startMouse = screen.getCursorScreenPoint()
-    const [x, y] = mainWindow.getPosition()
-    startWindow = { x, y }
-  })
-
-  ipcMain.on('move-window', (event, arg) => {
-    if (!startWindow || !startMouse) {
-      return
-    }
-    const currentMouse = screen.getCursorScreenPoint()
-    const dx = currentMouse.x - startMouse.x
-    const { newX, newY } = { newX: startWindow.x + dx, newY: startWindow.y }
-    mainWindow.setBounds({ x: newX, y: newY, width: mainWindow.getBounds().width, height: mainWindow.getBounds().height }, false)
-
-    // Update speech bubble position via handler
-    userActionHandler.updateSpeechBubblePosition(newX, newY);
-  })
-
-  let wasOffScreen = false; // Track if character was previously off-screen
-
-  ipcMain.on('drag-end', async (event, arg) => {
-    const bounds = mainWindow.getBounds();
-    const { x, y, width, height } = bounds;
-
-    // Save window position
-    configRepository.setConfig('windowPosition', { x, y });
-    console.log('[Window] Saved position:', { x, y });
-
-    // Check if character is off-screen (more than 30% hidden)
-    const displays = screen.getAllDisplays();
-    let maxVisibleArea = 0;
-
-    for (const display of displays) {
-      const { x: dx, y: dy, width: dw, height: dh } = display.bounds;
-
-      // Calculate visible area
-      const visibleX = Math.max(0, Math.min(x + width, dx + dw) - Math.max(x, dx));
-      const visibleY = Math.max(0, Math.min(y + height, dy + dh) - Math.max(y, dy));
-      const visibleArea = visibleX * visibleY;
-
-      maxVisibleArea = Math.max(maxVisibleArea, visibleArea);
-    }
-
-    const totalArea = width * height;
-    const visiblePercentage = (maxVisibleArea / totalArea) * 100;
-
-    console.log('[Window] Visible percentage:', visiblePercentage);
-
-    const isOffScreen = visiblePercentage < 70;
-
-    // React to state changes
-    if (isOffScreen && !wasOffScreen) {
-      // Newly hidden
-      console.log('[Window] Character is now off-screen, triggering reaction');
-      const instruction = `User just dragged you to the edge of the screen. Only ${visiblePercentage.toFixed(1)}% of your body is visible on screen. You are partially hidden/cut off. React to this situation - complain, express confusion, or ask why they're hiding you. Keep it brief and in character.`;
-
-      await userActionHandler.handleUserMessage({
-        input: instruction,
-        isSystemMessage: true
-      });
-    } else if (!isOffScreen && wasOffScreen) {
-      // Restored to visible
-      console.log('[Window] Character is now back on screen, triggering reaction');
-      const instruction = `User just dragged you back to a visible position. You are now ${visiblePercentage.toFixed(1)}% visible on screen again. React to being brought back into view - express relief, make a sarcastic comment, or acknowledge the change. Keep it brief and in character.`;
-
-      await userActionHandler.handleUserMessage({
-        input: instruction,
-        isSystemMessage: true
-      });
-    }
-
-    wasOffScreen = isOffScreen;
-  })
-
-  // Config IPC handler - delegate to ConfigHandler
-  ipcMain.on('save_config', async (event, configData) => {
-    await configHandler.saveConfig(configData);
-  })
-
-  // Get system fonts - delegate to ConfigHandler
-  ipcMain.handle('get-system-fonts', async () => {
-    return await configHandler.getSystemFonts();
-  })
-
-  // Get available tools - delegate to ConfigHandler
-  ipcMain.handle('get-available-tools', async () => {
-    return configHandler.getAvailableTools();
-  })
-
-  ipcMain.on('load-archive', (event, archiveKey: string) => {
-    const archiveMessages = chatHistoryRepository.getArchive(archiveKey)
-    const chatLogs = archiveMessages
-      .filter(msg => msg.type !== 'system')
-      .map(msg => msg.toChatLog())
-    const logsWindow = userActionHandler.getLogsWindow();
-    logsWindow?.webContents.send('receive_archive_logs', chatLogs)
-  })
-
-  // Debounce state for duplicate message prevention
-  let lastMessageHash = '';
-  let lastMessageTime = 0;
-  const DEBOUNCE_MS = 300; // 300ms debounce window
-
-  ipcMain.on('user-message', async (event, message: UserInput) => {
-    // Create hash from message content
-    const messageHash = `${message.input}-${message.isSystemMessage}`;
-    const now = Date.now();
-
-    // Ignore duplicate messages within debounce window
-    if (messageHash === lastMessageHash && (now - lastMessageTime) < DEBOUNCE_MS) {
-      console.log('[IPC] Duplicate message ignored (debounce):', message.input.substring(0, 50));
-      return;
-    }
-
-    // Ignore if already processing a message
-    if (userActionHandler.getGhostIsProcessingMessage()) {
-      console.log('[IPC] Message ignored (already processing):', message.input.substring(0, 50));
-      return;
-    }
-
-    lastMessageHash = messageHash;
-    lastMessageTime = now;
-
-    // Delegate to handler
-    await userActionHandler.handleUserMessage(message);
-  })
-
-  // Skin change IPC handler
-  ipcMain.on('change-skin', async (event, skinId: string) => {
-    await userActionHandler.handleChangeSkin(skinId);
-  })
-
-  // Streaming complete IPC handler
-  ipcMain.on('streaming-complete', () => {
-    userActionHandler.handleStreamingComplete();
-  })
+    return originalHandleAction(action);
+  };
 
   mainWindow.on('close', () => {
     // Stop trigger manager on app close

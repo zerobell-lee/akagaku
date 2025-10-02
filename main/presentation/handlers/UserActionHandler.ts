@@ -1,7 +1,7 @@
-import { BrowserWindow, screen } from 'electron';
+import { BrowserWindow, IpcMainEvent, screen } from 'electron';
 import path from 'path';
 import { GhostService } from '../../infrastructure/ghost/GhostService';
-import { CharacterAppearance, CharacterProperties, GhostResponse } from '@shared/types';
+import { CharacterAppearance, CharacterProperties, GhostResponse, UserInput } from '@shared/types';
 import { ConfigRepository } from '../../infrastructure/config/ConfigRepository';
 import { ToolConfigRepository } from '../../infrastructure/tools/ToolConfigRepository';
 import { chatHistoryRepository, getChatHistory } from '../../infrastructure/chat/ChatHistoryRepository';
@@ -10,6 +10,7 @@ import { skinRepository } from '../../infrastructure/character/SkinRepository';
 import { ListSkinsUseCase } from '../../application/use-cases/ListSkinsUseCase';
 import { ChangeSkinUseCase } from '../../application/use-cases/ChangeSkinUseCase';
 import { relationshipRepository } from '../../infrastructure/user/RelationshipRepository';
+import { IIPCHandler } from '../ipc/IIPCHandler';
 
 /**
  * UserActionHandler - Presentation layer handler for user actions
@@ -18,7 +19,7 @@ import { relationshipRepository } from '../../infrastructure/user/RelationshipRe
  * Follows Clean Architecture by depending on infrastructure services
  * through dependency injection.
  */
-export class UserActionHandler {
+export class UserActionHandler implements IIPCHandler {
   private mainWindow: BrowserWindow;
   private characterName: string;
   private characterAppearance: CharacterAppearance;
@@ -133,6 +134,29 @@ export class UserActionHandler {
     if (this.appExitTimeout) {
       clearTimeout(this.appExitTimeout);
       this.appExitTimeout = null;
+    }
+  }
+
+  // IIPCHandler implementation
+  getEventNames(): string[] {
+    return ['user-action'];
+  }
+
+  canHandle(eventName: string): boolean {
+    return eventName === 'user-action';
+  }
+
+  async handle(eventName: string, event: IpcMainEvent, ...args: any[]): Promise<void> {
+    if (eventName === 'user-action') {
+      const action = args[0] as string;
+
+      // Update ghost hidden state when moving to tray
+      if (action === 'MOVE_TO_TRAY') {
+        // This state should be managed by TrayHandler in the future
+        // For now, handle it here for compatibility
+      }
+
+      await this.handleAction(action);
     }
   }
 

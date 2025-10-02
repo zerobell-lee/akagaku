@@ -1,9 +1,10 @@
-import { app } from 'electron';
+import { app, IpcMainEvent, IpcMainInvokeEvent } from 'electron';
 import { GhostService } from '../../infrastructure/ghost/GhostService';
 import { ConfigRepository } from '../../infrastructure/config/ConfigRepository';
 import { ToolConfigRepository } from '../../infrastructure/tools/ToolConfigRepository';
 import { ToolRegistry } from '../../domain/services/ToolRegistry';
 import { UserActionHandler } from './UserActionHandler';
+import { IIPCHandler } from '../ipc/IIPCHandler';
 
 /**
  * Configuration data transfer object
@@ -41,7 +42,7 @@ export interface ConfigData {
  * - LangSmith tracing configuration
  * - Speech bubble styling
  */
-export class ConfigHandler {
+export class ConfigHandler implements IIPCHandler {
   private configRepository: ConfigRepository;
   private toolConfigRepository: ToolConfigRepository;
   private toolRegistry: ToolRegistry;
@@ -318,5 +319,31 @@ export class ConfigHandler {
    */
   getAvailableTools() {
     return this.toolRegistry.getAllToolsMetadata();
+  }
+
+  // IIPCHandler implementation
+  getEventNames(): string[] {
+    return ['save_config', 'get-system-fonts', 'get-available-tools'];
+  }
+
+  canHandle(eventName: string): boolean {
+    return this.getEventNames().includes(eventName);
+  }
+
+  async handle(eventName: string, event: IpcMainEvent, ...args: any[]): Promise<void> {
+    if (eventName === 'save_config') {
+      await this.saveConfig(args[0] as ConfigData);
+    }
+  }
+
+  async handleInvoke(eventName: string, event: IpcMainInvokeEvent, ...args: any[]): Promise<any> {
+    switch (eventName) {
+      case 'get-system-fonts':
+        return await this.getSystemFonts();
+      case 'get-available-tools':
+        return this.getAvailableTools();
+      default:
+        throw new Error(`Unknown invoke event: ${eventName}`);
+    }
   }
 }
