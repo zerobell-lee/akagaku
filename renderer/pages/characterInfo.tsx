@@ -39,6 +39,12 @@ export default function CharacterInfoPage() {
   }, []);
 
   const handleSkinChange = (skinId: string) => {
+    // Don't change if already active
+    if (characterInfo && skinId === characterInfo.activeSkinId) {
+      console.log('[CharacterInfo] Skin already active, ignoring:', skinId);
+      return;
+    }
+
     console.log('[CharacterInfo] Changing skin to:', skinId);
     window.ipc.send('change-skin', skinId);
     if (characterInfo) {
@@ -59,10 +65,40 @@ export default function CharacterInfoPage() {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-10">
-          <h1 className="text-5xl font-bold mb-4">{characterInfo.characterName}</h1>
+          <h1 className="text-5xl font-bold mb-6">{characterInfo.characterName}</h1>
+
+          {/* Affection Bar Gauge */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xl font-semibold text-gray-300">Affection</span>
+              <span className="text-xl font-bold text-white">{characterInfo.relationship.affection}/100</span>
+            </div>
+            <div className="w-full h-8 bg-gray-700 rounded-full overflow-hidden">
+              <div
+                className="h-full transition-all duration-500 ease-out"
+                style={{
+                  width: `${characterInfo.relationship.affection}%`,
+                  background: `linear-gradient(to right,
+                    ${characterInfo.relationship.affection < 20 ? '#ef4444' :
+                      characterInfo.relationship.affection < 40 ? '#f97316' :
+                      characterInfo.relationship.affection < 60 ? '#eab308' :
+                      characterInfo.relationship.affection < 80 ? '#84cc16' :
+                      '#22c55e'
+                    } 0%,
+                    ${characterInfo.relationship.affection < 20 ? '#dc2626' :
+                      characterInfo.relationship.affection < 40 ? '#ea580c' :
+                      characterInfo.relationship.affection < 60 ? '#ca8a04' :
+                      characterInfo.relationship.affection < 80 ? '#65a30d' :
+                      '#16a34a'
+                    } 100%)`
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Attitude */}
           <div className="text-gray-400 text-xl">
-            <p>Affection: {characterInfo.relationship.affection}</p>
-            <p>Attitude: {characterInfo.relationship.attitude}</p>
+            <p>Attitude: <span className="text-white font-semibold">{characterInfo.relationship.attitude}</span></p>
           </div>
         </div>
 
@@ -73,10 +109,10 @@ export default function CharacterInfoPage() {
             {characterInfo.skins.map((skin) => (
               <div
                 key={skin.skin_id}
-                className={`bg-gray-800 rounded-lg p-6 cursor-pointer transition-all hover:bg-gray-700 ${
+                className={`bg-gray-800 rounded-lg p-6 transition-all ${
                   skin.skin_id === characterInfo.activeSkinId
-                    ? 'ring-4 ring-blue-500'
-                    : ''
+                    ? 'ring-4 ring-blue-500 cursor-default'
+                    : 'cursor-pointer hover:bg-gray-700'
                 }`}
                 onClick={() => handleSkinChange(skin.skin_id)}
               >

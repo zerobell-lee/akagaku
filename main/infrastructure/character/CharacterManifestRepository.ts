@@ -41,11 +41,54 @@ class YamlCharacterManifestRepository implements ICharacterManifestRepository {
       // Validate required fields based on version
       this.validateManifest(manifest);
 
+      // Validate thumbnail if specified
+      if (manifest.thumbnail) {
+        this.validateThumbnail(characterDir, manifest.thumbnail, characterId);
+      }
+
       return manifest;
     }
 
     // Legacy fallback: Create manifest from character_description.yaml
     return this.createLegacyManifest(characterId);
+  }
+
+  /**
+   * Validate thumbnail file path and existence
+   */
+  private validateThumbnail(baseDir: string, thumbnailPath: string, characterId: string): void {
+    // Check for path traversal attempts
+    if (thumbnailPath.includes('..') || path.isAbsolute(thumbnailPath)) {
+      logger.error(`[CharacterManifestRepository] Security: Path traversal attempt in character thumbnail for ${characterId}: ${thumbnailPath}`);
+      throw new Error(`Invalid thumbnail path: ${thumbnailPath}`);
+    }
+
+    // Resolve full path
+    const fullPath = path.join(baseDir, thumbnailPath);
+
+    // Check file existence
+    if (!fs.existsSync(fullPath)) {
+      logger.warn(`[CharacterManifestRepository] Thumbnail file not found for character ${characterId}: ${fullPath}`);
+      return; // Don't throw, just log warning
+    }
+
+    // Validate file extension
+    const ext = path.extname(thumbnailPath).toLowerCase();
+    const validExtensions = ['.png', '.jpg', '.jpeg', '.webp'];
+    if (!validExtensions.includes(ext)) {
+      logger.warn(`[CharacterManifestRepository] Invalid thumbnail format for character ${characterId}: ${ext} (expected: ${validExtensions.join(', ')})`);
+      return;
+    }
+
+    // Check file size (max 500KB)
+    const stats = fs.statSync(fullPath);
+    const maxSize = 500 * 1024; // 500KB
+    if (stats.size > maxSize) {
+      logger.warn(`[CharacterManifestRepository] Thumbnail file too large for character ${characterId}: ${stats.size} bytes (max: ${maxSize} bytes)`);
+      // Don't throw, just log warning - large files can still load
+    }
+
+    logger.info(`[CharacterManifestRepository] Thumbnail validated for character ${characterId}: ${thumbnailPath} (${stats.size} bytes)`);
   }
 
   /**

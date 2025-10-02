@@ -1,5 +1,7 @@
 import Store from 'electron-store'
 import { IConfigRepository } from 'main/domain/repositories/IConfigRepository'
+import { app } from 'electron'
+import path from 'path'
 
 export class ConfigRepository implements IConfigRepository {
   private store: Store
@@ -16,6 +18,8 @@ export class ConfigRepository implements IConfigRepository {
     this.store.set(key, value)
   }
 }
+
+export const getDataDirectory = () => path.join(app.getAppPath(), 'data');
 
 let _configRepository: ConfigRepository | null = null;
 

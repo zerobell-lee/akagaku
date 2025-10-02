@@ -18,6 +18,9 @@ export const OverlayMenu = () => {
         };
 
         const handleMouseUp = () => {
+            // Notify drag ended
+            window.ipc.send('drag-end', null);
+
             // mousemove와 mouseup 이벤트 리스너 제거
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);

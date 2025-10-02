@@ -116,6 +116,12 @@ class YamlSkinRepository implements ISkinRepository {
       if (!manifest.manifest_version) {
         manifest.manifest_version = '1.0';
       }
+
+      // Validate thumbnail if specified
+      if (manifest.thumbnail) {
+        this.validateThumbnail(skinDir, manifest.thumbnail, 'skin', `${characterId}/${skinId}`);
+      }
+
       return manifest;
     }
 
@@ -132,6 +138,44 @@ class YamlSkinRepository implements ISkinRepository {
     }
 
     throw new Error(`Manifest not found for character ${characterId}, skin ${skinId}`);
+  }
+
+  /**
+   * Validate thumbnail file path and existence
+   */
+  private validateThumbnail(baseDir: string, thumbnailPath: string, type: 'skin' | 'character', identifier: string): void {
+    // Check for path traversal attempts
+    if (thumbnailPath.includes('..') || path.isAbsolute(thumbnailPath)) {
+      logger.error(`[SkinRepository] Security: Path traversal attempt in ${type} thumbnail for ${identifier}: ${thumbnailPath}`);
+      throw new Error(`Invalid thumbnail path: ${thumbnailPath}`);
+    }
+
+    // Resolve full path
+    const fullPath = path.join(baseDir, thumbnailPath);
+
+    // Check file existence
+    if (!fs.existsSync(fullPath)) {
+      logger.warn(`[SkinRepository] Thumbnail file not found for ${type} ${identifier}: ${fullPath}`);
+      return; // Don't throw, just log warning
+    }
+
+    // Validate file extension
+    const ext = path.extname(thumbnailPath).toLowerCase();
+    const validExtensions = ['.png', '.jpg', '.jpeg', '.webp'];
+    if (!validExtensions.includes(ext)) {
+      logger.warn(`[SkinRepository] Invalid thumbnail format for ${type} ${identifier}: ${ext} (expected: ${validExtensions.join(', ')})`);
+      return;
+    }
+
+    // Check file size (max 500KB)
+    const stats = fs.statSync(fullPath);
+    const maxSize = 500 * 1024; // 500KB
+    if (stats.size > maxSize) {
+      logger.warn(`[SkinRepository] Thumbnail file too large for ${type} ${identifier}: ${stats.size} bytes (max: ${maxSize} bytes)`);
+      // Don't throw, just log warning - large files can still load
+    }
+
+    logger.info(`[SkinRepository] Thumbnail validated for ${type} ${identifier}: ${thumbnailPath} (${stats.size} bytes)`);
   }
 
   /**

@@ -52,6 +52,27 @@ let toolConfigRepository: ToolConfigRepository;
 // This ensures consistent rendering across all platforms (Windows, macOS Retina, Linux)
 
 
+const isPositionVisible = (x: number, y: number, width: number, height: number): boolean => {
+  const displays = screen.getAllDisplays();
+
+  // Check if window is visible on any display
+  for (const display of displays) {
+    const { x: dx, y: dy, width: dw, height: dh } = display.bounds;
+
+    // Window is visible if any part of it is within display bounds
+    if (
+      x + width > dx &&
+      x < dx + dw &&
+      y + height > dy &&
+      y < dy + dh
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
 const createGhostWindow = (characterAppearance: CharacterAppearance) => {
   const screenWidth = screen.getPrimaryDisplay().workAreaSize.width
   const screenHeight = screen.getPrimaryDisplay().workAreaSize.height
@@ -71,10 +92,25 @@ const createGhostWindow = (characterAppearance: CharacterAppearance) => {
     },
   }, displayScale, true)
 
-  ghostWindow.setPosition(
-    Math.floor(screenWidth * 0.8) - scaledWidth,
-    screenHeight - scaledHeight
-  )
+  // Try to load saved position
+  const savedPosition = configRepository.getConfig('windowPosition') as { x: number; y: number } | undefined;
+
+  let finalX: number;
+  let finalY: number;
+
+  if (savedPosition && isPositionVisible(savedPosition.x, savedPosition.y, scaledWidth, scaledHeight)) {
+    // Use saved position if it's still visible
+    finalX = savedPosition.x;
+    finalY = savedPosition.y;
+    console.log('[Window] Using saved position:', { x: finalX, y: finalY });
+  } else {
+    // Fall back to default position
+    finalX = Math.floor(screenWidth * 0.8) - scaledWidth;
+    finalY = screenHeight - scaledHeight;
+    console.log('[Window] Using default position (saved position not visible or not found):', { x: finalX, y: finalY });
+  }
+
+  ghostWindow.setPosition(finalX, finalY)
 
   return ghostWindow
 };
@@ -396,6 +432,62 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
 
     // Update speech bubble position via handler
     userActionHandler.updateSpeechBubblePosition(newX, newY);
+  })
+
+  let wasOffScreen = false; // Track if character was previously off-screen
+
+  ipcMain.on('drag-end', async (event, arg) => {
+    const bounds = mainWindow.getBounds();
+    const { x, y, width, height } = bounds;
+
+    // Save window position
+    configRepository.setConfig('windowPosition', { x, y });
+    console.log('[Window] Saved position:', { x, y });
+
+    // Check if character is off-screen (more than 30% hidden)
+    const displays = screen.getAllDisplays();
+    let maxVisibleArea = 0;
+
+    for (const display of displays) {
+      const { x: dx, y: dy, width: dw, height: dh } = display.bounds;
+
+      // Calculate visible area
+      const visibleX = Math.max(0, Math.min(x + width, dx + dw) - Math.max(x, dx));
+      const visibleY = Math.max(0, Math.min(y + height, dy + dh) - Math.max(y, dy));
+      const visibleArea = visibleX * visibleY;
+
+      maxVisibleArea = Math.max(maxVisibleArea, visibleArea);
+    }
+
+    const totalArea = width * height;
+    const visiblePercentage = (maxVisibleArea / totalArea) * 100;
+
+    console.log('[Window] Visible percentage:', visiblePercentage);
+
+    const isOffScreen = visiblePercentage < 70;
+
+    // React to state changes
+    if (isOffScreen && !wasOffScreen) {
+      // Newly hidden
+      console.log('[Window] Character is now off-screen, triggering reaction');
+      const instruction = `User just dragged you to the edge of the screen. Only ${visiblePercentage.toFixed(1)}% of your body is visible on screen. You are partially hidden/cut off. React to this situation - complain, express confusion, or ask why they're hiding you. Keep it brief and in character.`;
+
+      await userActionHandler.handleUserMessage({
+        input: instruction,
+        isSystemMessage: true
+      });
+    } else if (!isOffScreen && wasOffScreen) {
+      // Restored to visible
+      console.log('[Window] Character is now back on screen, triggering reaction');
+      const instruction = `User just dragged you back to a visible position. You are now ${visiblePercentage.toFixed(1)}% visible on screen again. React to being brought back into view - express relief, make a sarcastic comment, or acknowledge the change. Keep it brief and in character.`;
+
+      await userActionHandler.handleUserMessage({
+        input: instruction,
+        isSystemMessage: true
+      });
+    }
+
+    wasOffScreen = isOffScreen;
   })
 
   // Config IPC handler - delegate to ConfigHandler

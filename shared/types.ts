@@ -148,7 +148,9 @@ export interface SkinManifest {
     description: string;       // Skin description for AI context: "wearing a swimsuit"
     version: string;           // Skin content version (e.g., "1.0.0")
     author?: string;
-    thumbnail?: string;        // Thumbnail image path
+    thumbnail?: string;        // Thumbnail image path (relative to skin directory)
+                               // Spec: 256x256 PNG/JPEG/WebP, max 500KB
+                               // Example: "thumbnail.png" → data/character/{character_id}/skins/{skin_id}/thumbnail.png
     created_at?: string;
 }
 
@@ -162,7 +164,9 @@ export interface CharacterManifest {
     character_id: string;      // Unique character identifier
     character_name: string;    // Display name for the character
     description: string;       // Character description
-    thumbnail?: string;        // Thumbnail image path for character selection
+    thumbnail?: string;        // Thumbnail image path (relative to character directory)
+                               // Spec: 256x256 PNG/JPEG/WebP, max 500KB
+                               // Example: "thumbnail.png" → data/character/{character_id}/thumbnail.png
     author?: string;
     created_at?: string;
     version: string;           // Character content version (e.g., "1.0.0")
