@@ -172,3 +172,29 @@ export interface CharacterManifest {
     created_at?: string;
     version: string;           // Character content version (e.g., "1.0.0")
 }
+
+// Onboarding system types
+export interface OnboardingConfig {
+    llmProvider: LLMProvider;
+    apiKey: string;
+    modelName?: string;
+    temperature?: number;
+    customBaseURL?: string;
+    selectedTools?: string[]; // Tool IDs to enable
+    toolApiKeys?: Record<string, string>; // Tool-specific API keys
+}
+
+export interface OnboardingSaveConfigPayload {
+    llmProvider: LLMProvider;
+    apiKey: string;
+    modelName?: string;
+    temperature?: number;
+    customBaseURL?: string;
+    openaiApiKey?: string;
+    anthropicApiKey?: string;
+    customApiKey?: string;
+    selectedModel?: string;
+    toolConfigs?: Record<string, ToolConfig>;
+    openweathermapApiKey?: string;
+    coinmarketcapApiKey?: string;
+}

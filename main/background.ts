@@ -1,5 +1,5 @@
 import path from 'path'
-import { app, BrowserWindow, dialog, ipcMain, protocol, screen, Tray, nativeImage } from 'electron'
+import { app, BrowserWindow, ipcMain, protocol, screen, Tray, nativeImage, shell } from 'electron'
 import serve from 'electron-serve'
 import { createWindow } from './helpers'
 import { GhostService } from './infrastructure/ghost/GhostService'
@@ -156,6 +156,34 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
   }
 }
 
+const createOnboardingWindow = () => {
+  const onboardingWindow = createWindow('onboarding', {
+    width: 800,
+    height: 600,
+    title: 'Akagaku Setup',
+    transparent: false,
+    frame: true,
+    resizable: false,
+    center: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+    },
+  }, 1.0, false)
+
+  onboardingWindow.setMenuBarVisibility(false);
+  loadUrlOnBrowserWindow(onboardingWindow, 'onboarding');
+
+  return onboardingWindow;
+}
+
+const hasApiKey = (): boolean => {
+  const openaiKey = configRepository.getConfig('openaiApiKey') || '';
+  const anthropicKey = configRepository.getConfig('anthropicApiKey') || '';
+  const customKey = configRepository.getConfig('customApiKey') || '';
+
+  return openaiKey.length > 0 || anthropicKey.length > 0 || customKey.length > 0;
+}
+
 (async () => {
   await app.whenReady()
 
@@ -170,19 +198,6 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
 
   // Initialize config repository after setting userData path
   initConfigRepository();
-
-  // Run SQLite migration for chat history (one-time operation)
-  const { ChatHistoryMigration } = await import('./infrastructure/database/migrations/migrate');
-  try {
-    await ChatHistoryMigration.run();
-  } catch (error) {
-    console.error('[Migration] Failed to migrate chat history:', error);
-    // Show error dialog to user
-    dialog.showErrorBox(
-      'Migration Error',
-      'Failed to migrate chat history to SQLite. Please check logs for details.'
-    );
-  }
 
   // Initialize tool registry
   toolRegistry = new ToolRegistry();
@@ -291,6 +306,37 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     }
   })
 
+  // Check if user needs onboarding (no API key configured)
+  if (!hasApiKey()) {
+    console.log('[Onboarding] No API key found, showing onboarding window');
+    const onboardingWindow = createOnboardingWindow();
+
+    // Import and initialize OnboardingHandler
+    const { OnboardingHandler } = require('./presentation/handlers/OnboardingHandler');
+    const onboardingHandler = new OnboardingHandler({
+      configRepository,
+      toolConfigRepository
+    });
+
+    // Set callback to restart app after onboarding
+    onboardingHandler.setOnComplete(() => {
+      console.log('[Onboarding] Complete, restarting app');
+      onboardingWindow.close();
+
+      // Restart the app to initialize with new config
+      app.relaunch();
+      app.exit(0);
+    });
+
+    // Register onboarding handler
+    const { IPCRegistry } = require('./presentation/ipc/IPCRegistry');
+    IPCRegistry.instance.registerHandler(onboardingHandler);
+    IPCRegistry.instance.initialize(ipcMain);
+
+    return;
+  }
+
+  // Normal flow: create ghost window directly
   const characterAppearance = CharacterSettingLoader.getCharacterAppearance(characterName);
   const mainWindow = createGhostWindow(characterAppearance)
 
@@ -560,6 +606,11 @@ app.on('window-all-closed', () => {
 
 ipcMain.on('message', async (event, arg) => {
   event.reply('message', `${arg} World!`)
+})
+
+// Open external URL in default browser
+ipcMain.on('open-external', async (event, url: string) => {
+  await shell.openExternal(url);
 })
 
 
