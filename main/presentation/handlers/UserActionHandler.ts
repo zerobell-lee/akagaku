@@ -13,6 +13,9 @@ import { relationshipRepository } from '../../infrastructure/user/RelationshipRe
 import { IIPCHandler } from '../ipc/IIPCHandler';
 import { logger } from '../../infrastructure/config/logger';
 
+// Constants
+const SPEECH_BUBBLE_HEIGHT = 768; // Fixed height based on Minkee's character height
+
 /**
  * UserActionHandler - Presentation layer handler for user actions
  *
@@ -463,6 +466,12 @@ export class UserActionHandler implements IIPCHandler {
   async handleMoveToTray(): Promise<void> {
     console.log('[UserActionHandler] Moving ghost to tray');
     this.mainWindow.hide();
+
+    // Hide speech bubble when going to tray
+    if (this.speechBubbleWindow && !this.speechBubbleWindow.isDestroyed()) {
+      this.speechBubbleWindow.hide();
+    }
+
     // isGhostHidden state is tracked in background.ts
   }
 
@@ -764,7 +773,7 @@ export class UserActionHandler implements IIPCHandler {
   private createSpeechBubbleWindow(): BrowserWindow {
     return createWindow('speech-bubble', {
       width: this.speechBubbleWidth,
-      height: this.characterAppearance.character_height,
+      height: SPEECH_BUBBLE_HEIGHT,
       transparent: true,
       frame: false,
       resizable: false,
@@ -788,14 +797,17 @@ export class UserActionHandler implements IIPCHandler {
     const scaledCharWidth = Math.floor(this.characterAppearance.character_width * this.displayScale);
     const mainBounds = this.mainWindow.getBounds();
 
+    // Adjust gap based on zoom factor to maintain consistent visual spacing
+    const gap = Math.floor(50 * this.displayScale);
+
     if (mainBounds.x < screenWidth / 2) {
       this.speechBubbleWindow.setPosition(
-        mainBounds.x + scaledCharWidth + 50,
+        mainBounds.x + scaledCharWidth + gap,
         mainBounds.y
       );
     } else {
       this.speechBubbleWindow.setPosition(
-        mainBounds.x - scaledBubbleWidth - 50,
+        mainBounds.x - scaledBubbleWidth - gap,
         mainBounds.y
       );
     }

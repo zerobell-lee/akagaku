@@ -15,6 +15,7 @@ export class TriggerManager {
   private intervalHandle: NodeJS.Timeout | null = null;
   private onTriggerFire: ((message: string, triggerId: string) => void) | null = null;
   private contextProvider: (() => Omit<TriggerContext, 'currentTime'>) | null = null;
+  private isPaused: boolean = false;
 
   constructor(checkIntervalMs: number = 60000) {
     // Default: check every minute
@@ -118,11 +119,36 @@ export class TriggerManager {
   }
 
   /**
+   * Pause trigger checking (e.g., when ghost is in tray)
+   */
+  pause(): void {
+    if (!this.isPaused) {
+      this.isPaused = true;
+      console.log('[TriggerManager] Paused');
+    }
+  }
+
+  /**
+   * Resume trigger checking
+   */
+  resume(): void {
+    if (this.isPaused) {
+      this.isPaused = false;
+      console.log('[TriggerManager] Resumed');
+    }
+  }
+
+  /**
    * Manually check all triggers
    */
   async checkTriggers(): Promise<void> {
     if (!this.contextProvider) {
       console.warn('[TriggerManager] No context provider set');
+      return;
+    }
+
+    // Skip checking if paused
+    if (this.isPaused) {
       return;
     }
 

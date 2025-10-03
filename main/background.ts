@@ -329,6 +329,9 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
         mainWindow.show();
         isGhostHidden = false;
 
+        // Resume triggers when restoring from tray
+        triggerManager.resume();
+
         // Activate tray trigger
         const trayTrigger = triggerManager.getTrigger('tray-activation');
         if (trayTrigger && 'activate' in trayTrigger) {
@@ -502,6 +505,8 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
   userActionHandler.handleAction = async function(action: string) {
     if (action === 'MOVE_TO_TRAY') {
       isGhostHidden = true;
+      // Pause triggers when moving to tray
+      triggerManager.pause();
     }
     return originalHandleAction(action);
   };

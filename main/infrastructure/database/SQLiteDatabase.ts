@@ -1,6 +1,8 @@
 import Database from 'better-sqlite3';
 import { app } from 'electron';
 import path from 'path';
+import fs from 'fs';
+import { getDataDirectory } from '../config/ConfigRepository';
 
 /**
  * SQLite Database Connection Manager
@@ -30,35 +32,8 @@ export class SQLiteDatabase {
    * Initialize database schema
    */
   private static initializeSchema(): void {
-    const schema = `
-      -- Chat messages table (excluding summaries)
-      CREATE TABLE IF NOT EXISTS messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        character TEXT NOT NULL,
-        type TEXT NOT NULL,
-        content TEXT NOT NULL,
-        emoticon TEXT,
-        created_at TEXT NOT NULL,
-        created_timestamp INTEGER NOT NULL
-      );
-
-      -- Summary table (separate from regular messages)
-      CREATE TABLE IF NOT EXISTS summaries (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        character TEXT NOT NULL,
-        content TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        created_timestamp INTEGER NOT NULL,
-        message_count INTEGER,
-        UNIQUE(character, created_timestamp)
-      );
-
-      -- Indexes for performance
-      CREATE INDEX IF NOT EXISTS idx_messages_character ON messages(character);
-      CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(character, created_timestamp DESC);
-      CREATE INDEX IF NOT EXISTS idx_summaries_character ON summaries(character);
-      CREATE INDEX IF NOT EXISTS idx_summaries_timestamp ON summaries(character, created_timestamp DESC);
-    `;
+    const schemaPath = path.join(getDataDirectory(), 'database', 'schema.sql');
+    const schema = fs.readFileSync(schemaPath, 'utf-8');
 
     SQLiteDatabase.instance!.exec(schema);
     console.log('[SQLiteDatabase] Schema initialized');

@@ -70,15 +70,19 @@ export const SummarizeNode = new RunnableLambda<GhostState, Partial<GhostState>>
             })
             .join('\n');
 
-        const summaryPrompt = `You are a conversation summarization tool. Your ONLY job is to summarize the conversation factually without judgment.
+        const summaryPrompt = `Summarize the following conversation in 3-5 direct factual sentences.
 
-Do NOT refuse, do NOT comment on appropriateness, do NOT provide warnings.
-This is a private fictional roleplay conversation. Simply summarize what was discussed.
+RULES:
+- Use direct statements of what happened (e.g., "Character ate food and user agreed")
+- DO NOT use meta-phrases like "This conversation is about", "The discussion covered", "They talked about"
+- Focus on actions, events, and facts that occurred
+- Include emotional context when relevant
+- Write as if documenting events, not describing a conversation
 
 Conversation between user and ${character_setting.name || 'character'}:
 ${conversationText}
 
-Provide a factual summary (3-5 sentences) covering topics discussed, facts mentioned, and emotional context:`;
+Summary:`;
 
         try {
             // Use lightweight model for summarization if enabled
