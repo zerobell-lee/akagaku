@@ -202,6 +202,10 @@ export class ConfigHandler implements IIPCHandler {
     if (config.summarizationThreshold !== undefined) {
       this.configRepository.setConfig('summarizationThreshold', config.summarizationThreshold);
     }
+
+    if (config.keepRecentMessages !== undefined) {
+      this.configRepository.setConfig('keepRecentMessages', config.keepRecentMessages);
+    }
   }
 
   /**
