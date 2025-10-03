@@ -88,6 +88,7 @@ export interface ConfigResponse {
     enableLightweightModel: boolean;
     enableAutoSummarization: boolean;
     summarizationThreshold: number;
+    keepRecentMessages: number;
     // Developer settings
     langsmithApiKey?: string;
     enableLangsmithTracing?: boolean;

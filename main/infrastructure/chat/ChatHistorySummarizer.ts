@@ -1,70 +1,107 @@
 import { IChatHistorySummarizer } from "main/application/ports/IChatHistorySummarizer";
-import { AkagakuChatHistory } from "./ChatHistoryRepository";
-import { AkagakuSystemMessage } from "main/domain/message/AkagakuMessage";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { formatDatetime } from "../utils/DatetimeStringUtils";
 import { configRepository } from "../config/ConfigRepository";
 import { LLMService } from "@shared/types";
+import { SQLiteDatabase } from "../database/SQLiteDatabase";
+
+interface MessageRow {
+  id: number;
+  character: string;
+  type: string;
+  content: string;
+  emoticon: string | null;
+  created_at: string;
+  created_timestamp: number;
+}
+
+interface SummaryRow {
+  id: number;
+  character: string;
+  content: string;
+  created_at: string;
+  created_timestamp: number;
+  message_count: number | null;
+}
 
 /**
- * Chat History Summarizer Implementation
+ * Chat History Summarizer Implementation (SQLite-based)
  *
  * Summarizes conversation history using LLM to reduce token usage.
- * Keeps recent messages intact and summarizes older ones.
+ * Works directly with SQLite database instead of in-memory objects.
  */
 export class ChatHistorySummarizer implements IChatHistorySummarizer {
+    /**
+     * Summarize chat history for a character
+     *
+     * @param characterName - Character identifier
+     * @param llmService - LLM service to use
+     * @param apiKey - API key for LLM service
+     * @param modelName - Model name to use
+     * @param enableLightweightModel - Whether to use lightweight model
+     * @returns true if summarization was performed, false if skipped
+     */
     async summarize(
-        chatHistory: AkagakuChatHistory,
         characterName: string,
         llmService: LLMService,
         apiKey: string,
         modelName: string,
         enableLightweightModel: boolean
-    ): Promise<AkagakuChatHistory | null> {
-        const summarizationThreshold = configRepository.getConfig('summarizationThreshold') as number || 20;
-        const allMessages = chatHistory.getAllMessagesInternal();
+    ): Promise<boolean> {
+        const db = SQLiteDatabase.getInstance();
+        const summarizationThreshold = configRepository.getConfig('summarizationThreshold') as number || 40;
+        const keepRecentMessages = configRepository.getConfig('keepRecentMessages') as number || 20;
+        const MIN_SUMMARIZE = 10; // Minimum messages to make summarization worthwhile
 
-        // Find last summary index
-        let lastSummaryIndex = -1;
-        for (let i = allMessages.length - 1; i >= 0; i--) {
-            if (allMessages[i].isSummary === true) {
-                lastSummaryIndex = i;
-                break;
-            }
-        }
+        // 1. Get last summary timestamp
+        const lastSummary = db.prepare(`
+            SELECT * FROM summaries
+            WHERE character = ?
+            ORDER BY created_timestamp DESC
+            LIMIT 1
+        `).get(characterName) as SummaryRow | undefined;
 
-        const unsummarizedMessages = lastSummaryIndex >= 0
-            ? allMessages.slice(lastSummaryIndex + 1)
-            : allMessages;
+        const lastSummaryTimestamp = lastSummary?.created_timestamp || 0;
 
-        const unsummarizedCount = unsummarizedMessages.filter(msg => msg.type !== 'system').length;
+        // 2. Get all unsummarized messages (excluding system messages for counting)
+        const unsummarizedRows = db.prepare(`
+            SELECT * FROM messages
+            WHERE character = ? AND created_timestamp > ?
+            ORDER BY created_timestamp ASC
+        `).all(characterName, lastSummaryTimestamp) as MessageRow[];
 
-        // Skip if below threshold
+        const unsummarizedCount = unsummarizedRows.filter(row => row.type !== 'system').length;
+
+        // 3. Validation checks
         if (unsummarizedCount <= summarizationThreshold) {
             console.log(`[ChatHistorySummarizer] Skipped: ${unsummarizedCount} unsummarized messages (threshold: ${summarizationThreshold})`);
-            return null;
+            return false;
         }
 
-        const keepRecentCount = 10;
-        const totalUnsummarizedLength = unsummarizedMessages.length;
-
-        // Only summarize if we have more than keepRecentCount messages
-        if (totalUnsummarizedLength <= keepRecentCount) {
-            console.log(`[ChatHistorySummarizer] Skipped: only ${totalUnsummarizedLength} messages (keeping ${keepRecentCount} recent)`);
-            return null;
+        if (unsummarizedRows.length <= keepRecentMessages) {
+            console.log(`[ChatHistorySummarizer] Skipped: only ${unsummarizedRows.length} messages (keeping ${keepRecentMessages} recent)`);
+            return false;
         }
 
-        const messagesToSummarize = unsummarizedMessages.slice(0, totalUnsummarizedLength - keepRecentCount);
-        const recentMessages = unsummarizedMessages.slice(totalUnsummarizedLength - keepRecentCount);
+        // 4. Split messages: to summarize vs to keep
+        const messagesToSummarize = unsummarizedRows.slice(0, unsummarizedRows.length - keepRecentMessages);
+        const recentMessages = unsummarizedRows.slice(unsummarizedRows.length - keepRecentMessages);
+
+        if (messagesToSummarize.length < MIN_SUMMARIZE) {
+            console.log(`[ChatHistorySummarizer] Skipped: only ${messagesToSummarize.length} messages to summarize (min: ${MIN_SUMMARIZE})`);
+            return false;
+        }
 
         console.log(`[ChatHistorySummarizer] Summarizing: ${messagesToSummarize.length} messages, keeping ${recentMessages.length} recent`);
 
+        // 5. Build conversation text for LLM
         const conversationText = messagesToSummarize
-            .filter(msg => msg.type !== 'system')
-            .map(msg => {
-                const chatLog = msg.toChatLog();
-                return `${formatDatetime(chatLog.createdAt)} | ${chatLog.role}: ${chatLog.content}`;
+            .filter(row => row.type !== 'system')
+            .map(row => {
+                const datetime = formatDatetime(new Date(row.created_at));
+                const role = row.type === 'user' ? 'User' : characterName;
+                return `${datetime} | ${role}: ${row.content}`;
             })
             .join('\n');
 
@@ -83,6 +120,7 @@ ${conversationText}
 Summary:`;
 
         try {
+            // 6. Generate summary with LLM
             let model;
             if (llmService === 'openai') {
                 model = new ChatOpenAI({
@@ -98,39 +136,35 @@ Summary:`;
                 });
             } else {
                 console.log('[ChatHistorySummarizer] Skipped: unsupported LLM provider');
-                return null;
+                return false;
             }
 
             const result = await model.invoke(summaryPrompt);
             const summaryContent = typeof result.content === 'string' ? result.content : JSON.stringify(result.content);
 
-            const summaryMessage = new AkagakuSystemMessage({
-                content: `[Conversation Summary]\n${summaryContent}`,
-                createdAt: new Date(),
-                isSummary: true
-            });
+            // 7. Get timestamp of LAST summarized message (critical for query correctness)
+            const lastSummarizedMessage = messagesToSummarize[messagesToSummarize.length - 1];
+            const summaryTimestamp = lastSummarizedMessage.created_timestamp;
+            const summaryCreatedAt = new Date(lastSummarizedMessage.created_at).toISOString();
 
-            const summaryInsertIndex = lastSummaryIndex >= 0
-                ? lastSummaryIndex + 1 + messagesToSummarize.length
-                : messagesToSummarize.length;
-
-            const newMessages = [
-                ...allMessages.slice(0, summaryInsertIndex),
-                summaryMessage,
-                ...allMessages.slice(summaryInsertIndex)
-            ];
-
-            const newChatHistory = new AkagakuChatHistory(
-                newMessages,
-                newMessages.length
+            // 8. Insert summary into database
+            db.prepare(`
+                INSERT INTO summaries (character, content, created_at, created_timestamp, message_count)
+                VALUES (?, ?, ?, ?, ?)
+            `).run(
+                characterName,
+                `[Conversation Summary]\n${summaryContent}`,
+                summaryCreatedAt,
+                summaryTimestamp,
+                messagesToSummarize.length
             );
 
-            console.log(`[ChatHistorySummarizer] Complete: Inserted summary at index ${summaryInsertIndex}, total ${newMessages.length} messages`);
+            console.log(`[ChatHistorySummarizer] Complete: Summarized ${messagesToSummarize.length} messages, kept ${recentMessages.length} recent, summary timestamp: ${summaryCreatedAt}`);
 
-            return newChatHistory;
+            return true;
         } catch (e) {
             console.error('[ChatHistorySummarizer] Failed:', e);
-            return null;
+            return false;
         }
     }
 }

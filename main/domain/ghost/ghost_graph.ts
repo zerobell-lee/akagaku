@@ -176,7 +176,7 @@ export class Ghost {
             skipToolCall: shouldSkipToolCall,
             toolCallFinalAnswer: '',
             toolCallCompleted: false,
-            is_user_update_needed: this.conversation_count % 5 === 0,
+            is_user_update_needed: this.conversation_count % 10 === 0,
             toolAgent: this.toolAgent,
             conversationAgent: this.conversationAgent,
             messageConverter: this.messageConverter,
@@ -295,21 +295,16 @@ export class Ghost {
 
     private async executeBackgroundSummarization(): Promise<void> {
         try {
-            const chatHistory = getChatHistory(this.character_setting.character_id);
             const enableLightweightModel = configRepository.getConfig('enableLightweightModel') !== false;
 
-            const result = await chatHistorySummarizer.summarize(
-                chatHistory,
-                this.character_setting.name,
+            // Summarizer now works directly with SQLite database
+            await chatHistorySummarizer.summarize(
+                this.character_setting.character_id,
                 this.llm_properties.llmService,
                 this.llm_properties.apiKey,
                 this.llm_properties.modelName,
                 enableLightweightModel
             );
-
-            if (result) {
-                await updateChatHistory(this.character_setting.character_id, result);
-            }
         } catch (e) {
             console.error('[Ghost] Background summarization failed:', e);
         }

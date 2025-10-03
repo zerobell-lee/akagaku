@@ -39,12 +39,14 @@ export default function Config() {
     const [toastMessage, setToastMessage] = useState('');
     const [openweathermapApiKey, setOpenweathermapApiKey] = useState('');
     const [coinmarketcapApiKey, setCoinmarketcapApiKey] = useState('');
-    const [chatHistoryLimit, setChatHistoryLimit] = useState(20);
+    const [chatHistoryLimit, setChatHistoryLimit] = useState(100);
     const [displayScale, setDisplayScale] = useState(0.5);
     const [speechBubbleWidth, setSpeechBubbleWidth] = useState(500);
     const [enableLightweightModel, setEnableLightweightModel] = useState(true);
     const [enableAutoSummarization, setEnableAutoSummarization] = useState(true);
     const [summarizationThreshold, setSummarizationThreshold] = useState(40);
+    const [keepRecentMessages, setKeepRecentMessages] = useState(20);
+    const [hoveredDivider, setHoveredDivider] = useState<string | null>(null);
 
     // Developer settings
     const [langsmithApiKey, setLangsmithApiKey] = useState('');
@@ -88,6 +90,7 @@ export default function Config() {
             enableLightweightModel,
             enableAutoSummarization,
             summarizationThreshold,
+            keepRecentMessages,
             // Developer settings
             langsmithApiKey,
             enableLangsmithTracing,
@@ -116,7 +119,7 @@ export default function Config() {
         setTemperature(response.temperature);
         setOpenweathermapApiKey(response.openweathermapApiKey);
         setCoinmarketcapApiKey(response.coinmarketcapApiKey);
-        setChatHistoryLimit(response.chatHistoryLimit);
+        setChatHistoryLimit(response.chatHistoryLimit || 100); // default 100
 
         if (response.customBaseURL) {
             setCustomBaseURL(response.customBaseURL);
@@ -131,6 +134,7 @@ export default function Config() {
         setEnableLightweightModel(response.enableLightweightModel !== false); // default true
         setEnableAutoSummarization(response.enableAutoSummarization !== false); // default true
         setSummarizationThreshold(response.summarizationThreshold || 40); // default 40
+        setKeepRecentMessages(response.keepRecentMessages || 20); // default 20
 
         // Developer settings
         setLangsmithApiKey(response.langsmithApiKey || '');
@@ -363,25 +367,6 @@ export default function Config() {
 
     const renderChatTab = () => (
         <div className="space-y-4">
-            {/* Chat History Limit */}
-            <label className="flex flex-col gap-2">
-                <span className="text-2xl">Chat History Window</span>
-                <input
-                    type="number"
-                    value={chatHistoryLimit}
-                    onChange={(e) => setChatHistoryLimit(Number(e.target.value))}
-                    className="bg-gray-700 text-white px-4 py-2 rounded-md"
-                    style={{width: '150px'}}
-                    min="5"
-                    max="100"
-                />
-                <span className="text-base text-gray-400">
-                    Number of recent messages sent to LLM (default: 20). Lower = faster response & lower cost. Higher = better context.
-                </span>
-                <span className="text-base text-yellow-400">
-                    ⚠️ High values (50+) can cause slow responses (8+ seconds). Recommended: 15-30 for balance.
-                </span>
-            </label>
 
             {/* Performance Optimization Section */}
             <div className="border-t border-gray-700 pt-4 mt-4">
@@ -403,23 +388,224 @@ export default function Config() {
                     </div>
                 </label>
 
-                {/* Summarization Threshold */}
-                {enableAutoSummarization && (
-                    <label className="flex flex-col gap-2 pl-8">
-                        <span className="text-md">Summarization Threshold</span>
-                        <input
-                            type="number"
-                            value={summarizationThreshold}
-                            onChange={(e) => setSummarizationThreshold(Number(e.target.value))}
-                            className="bg-gray-700 text-white px-4 py-2 rounded-md"
-                            style={{width: '150px'}}
-                            min="20"
-                            max="100"
-                        />
+                {/* Storage Limit - Always visible */}
+                <div className="flex flex-col gap-2 pl-8 mt-4">
+                    <label className="flex flex-col gap-2">
+                        <span className="text-md">Storage Limit</span>
+                        <div className="flex items-center gap-4">
+                            <input
+                                type="range"
+                                value={chatHistoryLimit}
+                                onChange={(e) => setChatHistoryLimit(Number(e.target.value))}
+                                className="flex-1"
+                                min="50"
+                                max="200"
+                                step="10"
+                            />
+                            <span className="text-white font-mono w-12 text-right">{chatHistoryLimit}</span>
+                        </div>
                         <span className="text-base text-gray-400">
-                            Summarize when message count exceeds this number (default: 40)
+                            Maximum number of messages to store in history (default: 100)
                         </span>
                     </label>
+                </div>
+
+                {/* Summarization Settings - Advanced */}
+                {enableAutoSummarization && (
+                    <div className="flex flex-col gap-4 pl-8 bg-gray-800 p-4 rounded-md mt-2">
+                        <div className="text-sm text-gray-400 mb-2">
+                            ⚙️ <span className="font-semibold">Advanced Settings</span> - Summarization configuration
+                        </div>
+
+                        {/* Interactive Drag Bar */}
+                        <div className="bg-gray-900 p-6 rounded-md">
+                            <div className="text-sm text-gray-300 mb-4 font-semibold">Interactive History Range Configuration</div>
+
+                            {/* Scale markers */}
+                            <div className="relative mb-2">
+                                <div className="flex justify-between text-xs text-gray-500">
+                                    <span>0</span>
+                                    <span>50</span>
+                                    <span>100</span>
+                                    <span>150</span>
+                                    <span>200</span>
+                                </div>
+                            </div>
+
+                            {/* Draggable Bar Container */}
+                            <div className="relative h-16 bg-black rounded-lg border-2 border-gray-600">
+                                {/* Keep Recent (Green) - using inline style for guaranteed color */}
+                                <div
+                                    className="absolute left-0 top-0 h-full rounded-l-lg transition-all pointer-events-none"
+                                    style={{
+                                        width: `${(keepRecentMessages / 200) * 100}%`,
+                                        backgroundColor: '#16a34a'  // green-600
+                                    }}
+                                />
+
+                                {/* To Summarize (Yellow) */}
+                                <div
+                                    className="absolute top-0 h-full transition-all pointer-events-none"
+                                    style={{
+                                        left: `${(keepRecentMessages / 200) * 100}%`,
+                                        width: `${((summarizationThreshold - keepRecentMessages) / 200) * 100}%`,
+                                        backgroundColor: '#ca8a04'  // yellow-600
+                                    }}
+                                />
+
+                                {/* Buffer Zone (Orange) */}
+                                <div
+                                    className="absolute top-0 h-full transition-all pointer-events-none"
+                                    style={{
+                                        left: `${(summarizationThreshold / 200) * 100}%`,
+                                        width: `${((chatHistoryLimit - summarizationThreshold) / 200) * 100}%`,
+                                        backgroundColor: '#ea580c'  // orange-600
+                                    }}
+                                />
+
+                                {/* Unused Space (Dark Gray) */}
+                                <div
+                                    className="absolute top-0 h-full rounded-r-lg transition-all pointer-events-none"
+                                    style={{
+                                        left: `${(chatHistoryLimit / 200) * 100}%`,
+                                        width: `${((200 - chatHistoryLimit) / 200) * 100}%`,
+                                        backgroundColor: '#374151'  // gray-700
+                                    }}
+                                />
+
+                                {/* Draggable Dividers */}
+                                {/* Keep Recent Divider */}
+                                <div
+                                    className="absolute top-0 h-full w-1 bg-white cursor-ew-resize hover:bg-green-300 z-10 transition-colors"
+                                    style={{left: `${(keepRecentMessages / 200) * 100}%`, marginLeft: '-2px'}}
+                                    draggable
+                                    onMouseEnter={() => setHoveredDivider('keep')}
+                                    onMouseLeave={() => setHoveredDivider(null)}
+                                    onDragStart={(e) => {
+                                        e.dataTransfer.effectAllowed = 'move';
+                                        e.dataTransfer.setData('divider', 'keep');
+                                    }}
+                                    onDrag={(e) => {
+                                        if (e.clientX === 0) return;
+                                        const rect = e.currentTarget.parentElement!.getBoundingClientRect();
+                                        const x = e.clientX - rect.left;
+                                        const value = Math.round((x / rect.width) * 200);
+                                        if (value >= 10 && value < summarizationThreshold - 10) {
+                                            setKeepRecentMessages(Math.min(50, value));
+                                        }
+                                    }}
+                                >
+                                    {/* Tooltip */}
+                                    {hoveredDivider === 'keep' && (
+                                        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-20">
+                                            Keep Recent: {keepRecentMessages}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Threshold Divider */}
+                                <div
+                                    className="absolute top-0 h-full w-1 bg-white cursor-ew-resize hover:bg-yellow-300 z-10 transition-colors"
+                                    style={{left: `${(summarizationThreshold / 200) * 100}%`, marginLeft: '-2px'}}
+                                    draggable
+                                    onMouseEnter={() => setHoveredDivider('threshold')}
+                                    onMouseLeave={() => setHoveredDivider(null)}
+                                    onDragStart={(e) => {
+                                        e.dataTransfer.effectAllowed = 'move';
+                                        e.dataTransfer.setData('divider', 'threshold');
+                                    }}
+                                    onDrag={(e) => {
+                                        if (e.clientX === 0) return;
+                                        const rect = e.currentTarget.parentElement!.getBoundingClientRect();
+                                        const x = e.clientX - rect.left;
+                                        const value = Math.round((x / rect.width) * 200);
+                                        if (value > keepRecentMessages + 10 && value < chatHistoryLimit - 10) {
+                                            setSummarizationThreshold(Math.min(100, value));
+                                        }
+                                    }}
+                                >
+                                    {/* Tooltip */}
+                                    {hoveredDivider === 'threshold' && (
+                                        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-20">
+                                            Trigger: {summarizationThreshold}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Storage Limit Divider */}
+                                <div
+                                    className="absolute top-0 h-full w-1 bg-red-500 cursor-ew-resize hover:bg-red-300 z-10 transition-colors"
+                                    style={{left: `${(chatHistoryLimit / 200) * 100}%`, marginLeft: '-2px'}}
+                                    draggable
+                                    onMouseEnter={() => setHoveredDivider('limit')}
+                                    onMouseLeave={() => setHoveredDivider(null)}
+                                    onDragStart={(e) => {
+                                        e.dataTransfer.effectAllowed = 'move';
+                                        e.dataTransfer.setData('divider', 'limit');
+                                    }}
+                                    onDrag={(e) => {
+                                        if (e.clientX === 0) return;
+                                        const rect = e.currentTarget.parentElement!.getBoundingClientRect();
+                                        const x = e.clientX - rect.left;
+                                        const value = Math.round((x / rect.width) * 200);
+                                        if (value > summarizationThreshold + 10 && value <= 200) {
+                                            setChatHistoryLimit(value);
+                                        }
+                                    }}
+                                >
+                                    {/* Tooltip */}
+                                    {hoveredDivider === 'limit' && (
+                                        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-20">
+                                            Storage Limit: {chatHistoryLimit}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Value Display */}
+                            <div className="flex justify-between mt-4 text-xs">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 bg-green-600 rounded"></div>
+                                    <span className="text-gray-300">Keep Recent: <span className="font-mono text-white">{keepRecentMessages}</span></span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 bg-yellow-600 rounded"></div>
+                                    <span className="text-gray-300">Trigger: <span className="font-mono text-white">{summarizationThreshold}</span></span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 bg-red-500 rounded"></div>
+                                    <span className="text-gray-300">Storage Limit: <span className="font-mono text-white">{chatHistoryLimit}</span></span>
+                                </div>
+                            </div>
+
+                            {/* Validation Messages */}
+                            <div className="mt-4 space-y-1">
+                                {summarizationThreshold >= chatHistoryLimit && (
+                                    <div className="text-xs text-red-400">
+                                        ⚠️ Trigger must be less than storage limit
+                                    </div>
+                                )}
+                                {keepRecentMessages >= summarizationThreshold && (
+                                    <div className="text-xs text-red-400">
+                                        ⚠️ Keep recent must be less than trigger
+                                    </div>
+                                )}
+                                {(summarizationThreshold - keepRecentMessages) < 10 && summarizationThreshold < chatHistoryLimit && keepRecentMessages < summarizationThreshold && (
+                                    <div className="text-xs text-yellow-400">
+                                        ⚠️ Too few messages to summarize ({summarizationThreshold - keepRecentMessages}). Minimum 10 recommended
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Help Text */}
+                            <div className="mt-4 text-xs text-gray-400 space-y-1">
+                                <p>• <strong>Drag the dividers</strong> to adjust values</p>
+                                <p>• <strong>Green</strong>: Messages kept in original form</p>
+                                <p>• <strong>Yellow</strong>: Messages to be summarized when trigger is reached</p>
+                                <p>• <strong>Orange</strong>: Buffer zone before hitting storage limit</p>
+                            </div>
+                        </div>
+                    </div>
                 )}
 
                 {/* Lightweight Model */}
