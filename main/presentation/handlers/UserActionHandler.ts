@@ -6,6 +6,8 @@ import { ConfigRepository } from '../../infrastructure/config/ConfigRepository';
 import { ToolConfigRepository } from '../../infrastructure/tools/ToolConfigRepository';
 import { chatHistoryRepository, getChatHistory } from '../../infrastructure/chat/ChatHistoryRepository';
 import { createWindow } from '../../helpers';
+import { PlatformUtils } from '../../helpers/PlatformUtils';
+import { ScreenUtils } from '../../helpers/ScreenUtils';
 import { skinRepository } from '../../infrastructure/character/SkinRepository';
 import { ListSkinsUseCase } from '../../application/use-cases/ListSkinsUseCase';
 import { ChangeSkinUseCase } from '../../application/use-cases/ChangeSkinUseCase';
@@ -872,7 +874,7 @@ export class UserActionHandler implements IIPCHandler {
   private positionSpeechBubble(): void {
     if (!this.speechBubbleWindow) return;
 
-    const screenWidth = screen.getPrimaryDisplay().workAreaSize.width;
+    const screenWidth = ScreenUtils.getScreenWidth();
     const scaledBubbleWidth = Math.floor(this.speechBubbleWidth * this.displayScale);
     const scaledCharWidth = Math.floor(this.characterAppearance.character_width * this.displayScale);
     const mainBounds = this.mainWindow.getBounds();
@@ -930,7 +932,7 @@ export class UserActionHandler implements IIPCHandler {
   updateSpeechBubblePosition(newX: number, newY: number): void {
     if (!this.speechBubbleWindow) return;
 
-    const screenWidth = screen.getPrimaryDisplay().workAreaSize.width;
+    const screenWidth = ScreenUtils.getScreenWidth();
     const scaledCharWidth = Math.floor(this.characterAppearance.character_width * this.displayScale);
     const scaledBubbleWidth = Math.floor(this.speechBubbleWidth * this.displayScale);
 

@@ -2,6 +2,8 @@ import path from 'path'
 import { app, BrowserWindow, ipcMain, protocol, screen, Tray, nativeImage, shell } from 'electron'
 import serve from 'electron-serve'
 import { createWindow } from './helpers'
+import { PlatformUtils } from './helpers/PlatformUtils'
+import { ScreenUtils } from './helpers/ScreenUtils'
 import { GhostService } from './infrastructure/ghost/GhostService'
 import { configRepository, initConfigRepository } from './infrastructure/config/ConfigRepository'
 import { CharacterSettingLoader } from './infrastructure/character/CharacterRepository'
@@ -68,31 +70,15 @@ let toolConfigRepository: ToolConfigRepository;
 // This ensures consistent rendering across all platforms (Windows, macOS Retina, Linux)
 
 
-const isPositionVisible = (x: number, y: number, width: number, height: number): boolean => {
-  const displays = screen.getAllDisplays();
-
-  // Check if window is visible on any display
-  for (const display of displays) {
-    const { x: dx, y: dy, width: dw, height: dh } = display.bounds;
-
-    // Window is visible if any part of it is within display bounds
-    if (
-      x + width > dx &&
-      x < dx + dw &&
-      y + height > dy &&
-      y < dy + dh
-    ) {
-      return true;
-    }
-  }
-
-  return false;
-};
+// Deprecated: Use ScreenUtils.isPositionVisible instead
+const isPositionVisible = ScreenUtils.isPositionVisible;
 
 const createGhostWindow = (characterAppearance: CharacterAppearance) => {
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const screenWidth = primaryDisplay.bounds.width;
-  const screenHeight = primaryDisplay.bounds.height;
+  // Log platform and display info for debugging
+  ScreenUtils.logDisplayInfo();
+
+  const displayArea = ScreenUtils.getPrimaryDisplayArea();
+  const screenWidth = displayArea.width;
 
   const ghostWindow = createWindow('main', {
     width: characterAppearance.character_width,
@@ -117,7 +103,7 @@ const createGhostWindow = (characterAppearance: CharacterAppearance) => {
     displayScale,
     scaled: { width: scaledWidth, height: scaledHeight },
     actualWindowBounds: actualBounds,
-    screenHeight
+    displayArea
   });
 
   // Try to load saved position
@@ -126,15 +112,15 @@ const createGhostWindow = (characterAppearance: CharacterAppearance) => {
   let finalX: number;
   let finalY: number;
 
-  if (savedPosition && isPositionVisible(savedPosition.x, 0, scaledWidth, scaledHeight)) {
-    // Use saved X position, but always pin to bottom of screen for Y
+  if (savedPosition && ScreenUtils.isPositionVisible(savedPosition.x, 0, scaledWidth, scaledHeight)) {
+    // Use saved X position, but always pin to bottom of usable screen area
     finalX = savedPosition.x;
-    finalY = screenHeight - scaledHeight;
+    finalY = ScreenUtils.getBottomPosition(scaledHeight);
     console.log('[Window] Using saved X position, bottom-aligned Y:', { x: finalX, y: finalY });
   } else {
     // Fall back to default position
     finalX = Math.floor(screenWidth * 0.8) - scaledWidth;
-    finalY = screenHeight - scaledHeight;
+    finalY = ScreenUtils.getBottomPosition(scaledHeight);
     console.log('[Window] Using default position (saved position not visible or not found):', { x: finalX, y: finalY });
   }
 
@@ -284,7 +270,7 @@ const hasApiKey = (): boolean => {
   console.log("ghost", ghost);
 
   // macOS에서는 추가적인 초기화 시간이 필요할 수 있음
-  if (process.platform === 'darwin') {
+  if (PlatformUtils.isMacOS()) {
     await new Promise(resolve => setTimeout(resolve, 100))
   }
 
@@ -345,9 +331,9 @@ const hasApiKey = (): boolean => {
   const mainWindow = createGhostWindow(characterAppearance)
 
   loadUrlOnBrowserWindow(mainWindow, 'home')
-  
+
   // macOS에서 앱이 제대로 표시되도록 함
-  if (process.platform === 'darwin') {
+  if (PlatformUtils.isMacOS()) {
     app.dock?.show()
     mainWindow.show()
     app.focus()
@@ -361,14 +347,14 @@ const hasApiKey = (): boolean => {
     // macOS uses template images for proper dark/light mode support
     // Windows uses .ico files
     let iconPath: string;
-    if (process.platform === 'darwin') {
+    if (PlatformUtils.isMacOS()) {
       // macOS: Use template PNG (16x16, automatically scales for Retina)
       iconPath = path.join(__dirname, '../resources/iconTemplate.png');
       const trayIcon = nativeImage.createFromPath(iconPath);
       trayIcon.setTemplateImage(true); // Enable template mode for macOS
       tray = new Tray(trayIcon);
     } else {
-      // Windows: Use .ico file
+      // Windows/Linux: Use .ico file
       iconPath = path.join(__dirname, '../resources/icon.ico');
       tray = new Tray(iconPath);
     }
