@@ -53,7 +53,7 @@
 
 ---
 
-## 5. Add App Metadata to Prompt
+## 5. ✅ Add App Metadata to Prompt - COMPLETED
 **Problem**: Character lacks context about the app itself (Akagaku concept).
 
 **Solution**:
@@ -61,12 +61,13 @@
 - Include app name, purpose, and concept explanation
 - Help character understand the context of conversation
 
-**Files to modify**:
-- `main/domain/ghost/graph/prompt/prompt.ts`
+**Fixed**:
+- Added Akagaku app context to all system prompts in `prompt.ts`
+- Included Ukagaka inspiration and desktop companion concept explanation
 
 ---
 
-## 6. Improve Summary Message Format
+## 6. ✅ Improve Summary Message Format - COMPLETED
 **Problem**: Current summaries use meta-description format like "This conversation is about..."
 
 **Desired Format**:
@@ -77,5 +78,6 @@
 - Update summary prompt to generate direct factual statements
 - Focus on actions and events, not conversation description
 
-**Files to modify**:
-- `main/domain/ghost/graph/nodes/SummarizeNode.ts`
+**Fixed**:
+- Updated summary prompt in `SummarizeNode.ts` to use direct factual statements
+- Removed meta-descriptive phrases from prompt instructions
