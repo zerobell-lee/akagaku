@@ -49,6 +49,10 @@ export class UserActionHandler implements IIPCHandler {
   private lastInteractionTime: Date = new Date();
   private onCharacterLoadedCallback: (() => void) | null = null;
 
+  // Streaming buffer
+  private streamBuffer: Array<{ type: string; data: any }> = [];
+  private speechBubbleReady = false;
+
   constructor({
     mainWindow,
     characterName,
@@ -693,6 +697,44 @@ export class UserActionHandler implements IIPCHandler {
   }
 
   /**
+   * Flush buffered stream chunks to speechBubble window
+   */
+  private flushStreamBuffer(): void {
+    if (!this.speechBubbleWindow || this.streamBuffer.length === 0) {
+      return;
+    }
+
+    console.log(`[UserActionHandler] Flushing ${this.streamBuffer.length} buffered chunks`);
+
+    for (const item of this.streamBuffer) {
+      if (item.type === 'chunk') {
+        this.speechBubbleWindow.webContents.send('ghost-message-chunk', item.data);
+      } else if (item.type === 'emoticon') {
+        this.speechBubbleWindow.webContents.send('ghost-message-emoticon-update', item.data);
+      }
+    }
+
+    this.streamBuffer = [];
+  }
+
+  /**
+   * Add chunk to buffer or send directly if speechBubble is ready
+   */
+  public handleStreamChunk(type: string, data: any): void {
+    if (this.speechBubbleReady && this.speechBubbleWindow) {
+      // SpeechBubble is ready, send directly
+      if (type === 'chunk') {
+        this.speechBubbleWindow.webContents.send('ghost-message-chunk', data);
+      } else if (type === 'emoticon') {
+        this.speechBubbleWindow.webContents.send('ghost-message-emoticon-update', data);
+      }
+    } else {
+      // SpeechBubble not ready yet, buffer it
+      this.streamBuffer.push({ type, data });
+    }
+  }
+
+  /**
    * Send message to ghost and display in speech bubble
    * Core orchestration method for ghost message flow
    */
@@ -701,6 +743,10 @@ export class UserActionHandler implements IIPCHandler {
   ): Promise<void> {
     this.ghostIsProcessingMessage = true;
     this.mainWindow.webContents.send('user-action', 'BUBBLE_OPENED');
+
+    // Reset buffer state for new message
+    this.streamBuffer = [];
+    this.speechBubbleReady = false;
 
     // Create speech bubble window if not exists
     const isNewWindow = !this.speechBubbleWindow;
@@ -717,11 +763,18 @@ export class UserActionHandler implements IIPCHandler {
           resolve();
         });
       });
+
+      // Add buffer delay to ensure window is fully initialized
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
     if (!this.speechBubbleWindow.isVisible()) {
       this.speechBubbleWindow.showInactive();
     }
+
+    // Mark speechBubble as ready and flush any buffered chunks
+    this.speechBubbleReady = true;
+    this.flushStreamBuffer();
 
     try {
       this.speechBubbleWindow.webContents.send('ghost-message-loading', true);

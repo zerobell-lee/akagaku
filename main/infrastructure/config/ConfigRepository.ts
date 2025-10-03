@@ -2,12 +2,17 @@ import Store from 'electron-store'
 import { IConfigRepository } from 'main/domain/repositories/IConfigRepository'
 import { app } from 'electron'
 import path from 'path'
+import { dataPathManager } from './DataPathManager'
 
 export class ConfigRepository implements IConfigRepository {
   private store: Store
 
   constructor() {
-    this.store = new Store({ name: 'config' });
+    const configPath = dataPathManager.getConfigPath('config.json');
+    this.store = new Store({
+      name: 'config',
+      cwd: path.dirname(configPath)
+    });
   }
 
   public getConfig(key: string) {

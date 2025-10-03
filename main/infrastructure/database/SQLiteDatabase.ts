@@ -3,6 +3,7 @@ import { app } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { getDataDirectory } from '../config/ConfigRepository';
+import { dataPathManager } from '../config/DataPathManager';
 
 /**
  * SQLite Database Connection Manager
@@ -17,7 +18,7 @@ export class SQLiteDatabase {
    */
   static getInstance(): Database.Database {
     if (!SQLiteDatabase.instance) {
-      const dbPath = path.join(app.getPath('userData'), 'akagaku.db');
+      const dbPath = dataPathManager.getDatabasePath('akagaku.db');
       console.log(`[SQLiteDatabase] Initializing database at: ${dbPath}`);
 
       SQLiteDatabase.instance = new Database(dbPath);

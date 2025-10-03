@@ -1,11 +1,17 @@
 import Store from 'electron-store';
 import { ToolConfig } from '../../domain/entities/Tool';
+import { dataPathManager } from '../config/DataPathManager';
+import path from 'path';
 
 let toolConfigStore: Store | null = null;
 
 const getToolConfigStore = (): Store => {
   if (!toolConfigStore) {
-    toolConfigStore = new Store({ name: 'tool_config' });
+    const toolConfigPath = dataPathManager.getConfigPath('tool_config.json');
+    toolConfigStore = new Store({
+      name: 'tool_config',
+      cwd: path.dirname(toolConfigPath)
+    });
   }
   return toolConfigStore;
 };

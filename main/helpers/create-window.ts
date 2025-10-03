@@ -5,6 +5,8 @@ import {
   Rectangle,
 } from 'electron'
 import Store from 'electron-store'
+import { dataPathManager } from '../infrastructure/config/DataPathManager'
+import path from 'path'
 
 export const createWindow = (
   windowName: string,
@@ -20,7 +22,11 @@ export const createWindow = (
 
   const key = 'window-state'
   const name = `window-state-${windowName}`
-  const store = new Store<Rectangle>({ name })
+  const windowStatePath = dataPathManager.getWindowStatePath(windowName);
+  const store = new Store<Rectangle>({
+    name,
+    cwd: path.dirname(windowStatePath)
+  })
   const defaultSize = {
     width: scaledOptions.width,
     height: scaledOptions.height,

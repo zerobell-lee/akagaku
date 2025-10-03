@@ -84,7 +84,7 @@ export default function Onboarding() {
 
         // Send to main process
         window.ipc.send('onboarding-save-config', payload);
-        window.ipc.send('onboarding-complete');
+        window.ipc.send('onboarding-complete', {});
     };
 
     const getDefaultModel = (provider: LLMProvider): string => {

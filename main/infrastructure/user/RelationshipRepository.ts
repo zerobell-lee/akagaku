@@ -1,12 +1,18 @@
 import { logger } from '../config/logger';
 import Store from 'electron-store'
 import { IRelationshipRepository } from 'main/domain/repositories/IRelationshipRepository';
+import { dataPathManager } from '../config/DataPathManager';
+import path from 'path';
 
 let relationshipStore: Store | null = null;
 
 const getRelationshipStore = (): Store => {
     if (!relationshipStore) {
-        relationshipStore = new Store({ name: 'relationship' });
+        const relationshipPath = dataPathManager.getConfigPath('relationship.json');
+        relationshipStore = new Store({
+            name: 'relationship',
+            cwd: path.dirname(relationshipPath)
+        });
     }
     return relationshipStore;
 };

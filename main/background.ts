@@ -196,6 +196,10 @@ const hasApiKey = (): boolean => {
 
   console.log('[DEBUG] userData path:', app.getPath('userData'));
 
+  // Auto-migrate data files to userData directory structure
+  const { dataPathManager } = await import('./infrastructure/config/DataPathManager');
+  dataPathManager.autoMigrateDataFiles();
+
   // Initialize config repository after setting userData path
   initConfigRepository();
 
@@ -509,13 +513,13 @@ const hasApiKey = (): boolean => {
     console.log('[Streaming] Emoticon parsed:', emoticon);
     // Send to main window to update character expression immediately
     mainWindow.webContents.send('ghost-emoticon', emoticon);
+    // Buffer emoticon for speechBubble window
+    userActionHandler.handleStreamChunk('emoticon', emoticon);
   });
 
   streamingEvents.on('stream-chunk', ({ characterId, chunk }) => {
-    const speechBubbleWindow = userActionHandler.getSpeechBubbleWindow();
-    if (speechBubbleWindow) {
-      speechBubbleWindow.webContents.send('ghost-message-chunk', chunk);
-    }
+    // Use buffer system instead of sending directly
+    userActionHandler.handleStreamChunk('chunk', chunk);
   });
 
   streamingEvents.on('stream-complete', ({ characterId }) => {
