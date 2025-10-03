@@ -227,8 +227,16 @@ export class Ghost {
         return await this.invoke({ input: "User is about to quit the application. Say goodbye to the user. Don't use any tools.", isSystemMessage: true });
     }
 
-    async doChitChat() {
-        return await this.invoke({ input: "User has been idle. Have a chit chat with the user. Don't use any tools.", isSystemMessage: true });
+    async doChitChat(topicContent?: string) {
+        // Default message if no topic provided
+        let message = "User has been idle and may not be looking at the screen. You can talk to yourself (monologue) or make a casual comment. Don't expect immediate response. Don't use any tools.";
+
+        // Use topic content if provided
+        if (topicContent) {
+            message = `User has been idle and may not be looking at the screen. You can talk to yourself (monologue) or make a casual comment. Don't expect immediate response. Don't use any tools.\n\nTOPIC: ${topicContent}`;
+        }
+
+        return await this.invoke({ input: message, isSystemMessage: true });
     }
 
     async sendRawMessage({ input, isSystemMessage }: { input: string, isSystemMessage: boolean }) {

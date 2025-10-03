@@ -57,7 +57,8 @@ export default function Logs() {
                 setStats(data.stats || null)
             }
             // Jump to last page when new logs arrive
-            const newTotalPages = Math.ceil((data.current || data).length / MESSAGES_PER_PAGE)
+            const logsArray = Array.isArray(data) ? data : (data.current || [])
+            const newTotalPages = Math.ceil(logsArray.length / MESSAGES_PER_PAGE)
             setCurrentPage(newTotalPages || 1)
             console.log('Received chatlogs:', data)
         })

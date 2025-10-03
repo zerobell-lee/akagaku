@@ -48,8 +48,8 @@ export class GhostService {
         return await this.ghost.sayGoodbye();
     }
 
-    async doChitChat(): Promise<GhostResponse> {
-        return await this.ghost.doChitChat();
+    async doChitChat(topicContent?: string): Promise<GhostResponse> {
+        return await this.ghost.doChitChat(topicContent);
     }
 
     async sendRawMessage({ input, isSystemMessage }: {

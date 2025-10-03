@@ -24,6 +24,9 @@ import { TriggerManager } from './domain/services/TriggerManager'
 import { triggerRegistry } from './infrastructure/triggers/TriggerRegistry'
 import { logger } from './infrastructure/config/logger'
 import { setRelationshipUpdateCallback } from './domain/ghost/graph/nodes/UpdateNode'
+import { TopicManager } from './domain/services/TopicManager'
+import { topicRepository } from './infrastructure/topic/TopicRepository'
+import { relationshipRepository } from './infrastructure/user/RelationshipRepository'
 
 
 // app.commandLine.appendSwitch('high-dpi-support', '1');
@@ -378,6 +381,12 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
   });
 
 
+  // Initialize TopicManager for conversation topics
+  const topicManager = new TopicManager();
+  const topics = topicRepository.loadTopicsForCharacter(characterName);
+  topicManager.loadTopics(topics);
+  console.log(`[TopicManager] Loaded ${topics.length} topics for ${characterName}`);
+
   // Initialize TriggerManager
   const triggerManager = new TriggerManager(60000); // Check every minute
   const triggers = triggerRegistry.createDefaultTriggers();
@@ -387,10 +396,34 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
   triggerManager.setOnTriggerFire(async (message, triggerId) => {
     console.log(`[TriggerManager] Trigger ${triggerId} fired, sending message to ghost`);
     try {
-      await userActionHandler.handleUserMessage({
-        input: message,
-        isSystemMessage: true
-      });
+      // For interval-idle trigger, use topic system
+      if (triggerId === 'interval-idle') {
+        const relationship = relationshipRepository.getCharacterRelationships(characterName);
+        const currentAffection = relationship?.affection_to_user || 50;
+
+        // Select random topic
+        const topic = topicManager.selectTopic(currentAffection);
+
+        if (topic) {
+          console.log(`[TriggerManager] Selected topic: ${topic.id}`);
+
+          // Send chit-chat with topic content
+          await ghost.doChitChat(topic.content);
+
+          // Mark topic as used
+          topicManager.markTopicUsed(topic.id);
+          topicRepository.saveTopicUsage(characterName, topic.id);
+        } else {
+          console.log('[TriggerManager] No available topics, using default chit-chat');
+          await ghost.doChitChat();
+        }
+      } else {
+        // Other triggers use normal system message
+        await userActionHandler.handleUserMessage({
+          input: message,
+          isSystemMessage: true
+        });
+      }
     } catch (error) {
       console.error(`[TriggerManager] Failed to send trigger message:`, error);
     }
