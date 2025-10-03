@@ -15,7 +15,7 @@ export class IntervalTrigger extends BaseTrigger {
     name = 'Idle Interval Trigger',
     intervalMs = 5 * 60 * 1000, // Default 5 minutes
     cooldownMs = 10 * 60 * 1000, // Default 10 minutes cooldown
-    messages = ['Have a chit chat with the user. Don\'t use any tools.'],
+    messages = ['Have a chit chat with the user.'],
     priority = 50
   }: {
     id?: string;

@@ -16,7 +16,7 @@ export class TrayActivationTrigger extends BaseTrigger {
     id = 'tray-activation',
     name = 'Tray Activation Trigger',
     cooldownMs = 60000,
-    messages = ['User just brought you back from the tray icon. Express relief or comment about being cramped. Don\'t use any tools.'],
+    messages = ['User just brought you back from the tray icon. Express relief or comment about being cramped.'],
     priority = 80
   }: {
     id?: string;

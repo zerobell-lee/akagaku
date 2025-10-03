@@ -98,6 +98,8 @@ export class ConfigHandler implements IIPCHandler {
 
     // Handle app restart requirements
     if (this.requiresRestart(config, previous)) {
+      // Set flag to skip greeting on restart
+      this.configRepository.setConfig('skipNextGreeting', true);
       app.relaunch();
       app.quit();
       return;

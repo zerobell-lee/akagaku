@@ -81,7 +81,7 @@ export class TriggerRegistry {
       intervalMs: 5 * 60 * 1000,
       cooldownMs: 10 * 60 * 1000,
       messages: [
-        'User has been idle for a while. Start a casual conversation with the user. Don\'t use any tools.'
+        'User has been idle for a while. Start a casual conversation with the user.'
       ],
       priority: 50
     };
@@ -101,7 +101,7 @@ export class TriggerRegistry {
         {
           hour: 0,
           minute: 0,
-          message: 'It is now midnight (00:00). Make a casual comment about the time. Don\'t use any tools.'
+          message: 'It is now midnight (00:00). Make a casual comment about the time.'
         }
       ],
       cooldownMs: 30 * 60 * 1000,
@@ -121,7 +121,7 @@ export class TriggerRegistry {
       enabled: true,
       cooldownMs: 60 * 1000, // 1 minute cooldown
       messages: [
-        'User just brought you back from the tray icon. Express relief or comment about being cramped. Don\'t use any tools.'
+        'User just brought you back from the tray icon. Express relief or comment about being cramped.'
       ],
       priority: 80
     };

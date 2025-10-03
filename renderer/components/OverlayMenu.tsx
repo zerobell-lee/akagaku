@@ -1,11 +1,24 @@
-import React  from 'react';
+import React, { useState, useEffect } from 'react';
 import { FaGear } from "react-icons/fa6";
 import { IoChatbubbleEllipses } from "react-icons/io5";
 import { ImExit } from "react-icons/im";
 import { TbLogs } from "react-icons/tb";
-import { MdOutlineMinimize } from "react-icons/md";
+import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { FaUser } from "react-icons/fa";
 export const OverlayMenu = () => {
+    const [platform, setPlatform] = useState<string>('');
+
+    useEffect(() => {
+        // Detect platform
+        const userAgent = window.navigator.userAgent;
+        if (userAgent.includes('Mac')) {
+            setPlatform('darwin');
+        } else if (userAgent.includes('Win')) {
+            setPlatform('win32');
+        } else {
+            setPlatform('linux');
+        }
+    }, []);
     const openChatInput = () => {
         window.ipc.send('user-action', 'CHAT_OPENED')
     }
@@ -52,7 +65,11 @@ export const OverlayMenu = () => {
                     <FaGear style={{ width: '30px', height: '30px', fill: 'white' }} />
                 </div>
                 <div className="flex gap-2 w-full cursor-pointer" onClick={() => window.ipc.send('user-action', 'MOVE_TO_TRAY')}>
-                    <MdOutlineMinimize style={{ width: '30px', height: '30px', fill: 'white' }} />
+                    {platform === 'darwin' ? (
+                        <FaArrowUp style={{ width: '30px', height: '30px', fill: 'white' }} />
+                    ) : (
+                        <FaArrowDown style={{ width: '30px', height: '30px', fill: 'white' }} />
+                    )}
                 </div>
                 <div className="flex gap-2 w-full cursor-pointer" onClick={() => window.ipc.send('user-action', 'APP_QUIT')}>
                     <ImExit style={{ width: '30px', height: '30px', fill: 'white' }} />

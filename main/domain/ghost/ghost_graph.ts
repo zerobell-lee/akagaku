@@ -150,7 +150,14 @@ export class Ghost {
 
         // Load current skin description for AI context
         const activeSkinId = skinRepository.getActiveSkin(this.character_setting.character_id);
-        const skinManifest = skinRepository.getSkinManifest(this.character_setting.character_id, activeSkinId);
+        let skinDescription = 'Standard everyday outfit';
+
+        try {
+            const skinManifest = skinRepository.getSkinManifest(this.character_setting.character_id, activeSkinId);
+            skinDescription = skinManifest.description || skinDescription;
+        } catch (error) {
+            console.warn('[Ghost] Failed to load skin manifest, using default description:', error);
+        }
 
         const state: GhostState = {
             userInput: { payload: input, isSystemMessage },
@@ -174,7 +181,7 @@ export class Ghost {
             toolAgent: this.toolAgent,
             conversationAgent: this.conversationAgent,
             messageConverter: this.messageConverter,
-            currentSkinDescription: skinManifest.description
+            currentSkinDescription: skinDescription
         }
         const result = await this.graph.invoke(state);
 
@@ -224,16 +231,16 @@ export class Ghost {
     }
 
     async sayGoodbye() {
-        return await this.invoke({ input: "User is about to quit the application. Say goodbye to the user. Don't use any tools.", isSystemMessage: true });
+        return await this.invoke({ input: "User is about to quit the application. Say goodbye to the user.", isSystemMessage: true });
     }
 
     async doChitChat(topicContent?: string) {
         // Default message if no topic provided
-        let message = "User has been idle and may not be looking at the screen. You can talk to yourself (monologue) or make a casual comment. Don't expect immediate response. Don't use any tools.";
+        let message = "User has been idle and may not be looking at the screen. You can talk to yourself (monologue) or make a casual comment. Don't expect immediate response.";
 
         // Use topic content if provided
         if (topicContent) {
-            message = `User has been idle and may not be looking at the screen. You can talk to yourself (monologue) or make a casual comment. Don't expect immediate response. Don't use any tools.\n\nTOPIC: ${topicContent}`;
+            message = `User has been idle and may not be looking at the screen. You can talk to yourself (monologue) or make a casual comment. Don't expect immediate response.\n\nTOPIC: ${topicContent}`;
         }
 
         return await this.invoke({ input: message, isSystemMessage: true });
