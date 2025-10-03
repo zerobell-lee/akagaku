@@ -30,6 +30,15 @@ const get_weather = new DynamicStructuredTool({
     },
 });
 
+/**
+ * update_user_info - Background User Profile Update Tool
+ *
+ * This tool is used exclusively by UpdateNode for automatic background user profile updates.
+ * It is NOT part of the ToolRegistry and cannot be disabled by users.
+ *
+ * The tool automatically updates user profile information based on conversation context,
+ * running in the background every N conversations without user intervention.
+ */
 export const update_user_info = new DynamicStructuredTool({
     name: "update_user_setting",
     description: `Use this tool when you got new important information about user (such as user's name, age, etc.).

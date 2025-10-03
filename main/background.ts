@@ -15,7 +15,6 @@ import { ToolRegistry } from './domain/services/ToolRegistry'
 import { ToolConfigRepository } from './infrastructure/tools/ToolConfigRepository'
 import { WeatherToolMetadata, createWeatherTool } from './domain/tools/definitions/WeatherTool'
 import { CryptoToolMetadata, createCryptoTool } from './domain/tools/definitions/CryptoTool'
-import { UserToolMetadata, createUserTool } from './domain/tools/definitions/UserTool'
 import { OpenUrlToolMetadata, createOpenUrlTool, BookmarksToolMetadata, createBookmarksTool } from './domain/tools/definitions/BrowserTool'
 import { InstalledAppsToolMetadata, createInstalledAppsTool, OpenAppToolMetadata, createOpenAppTool } from './domain/tools/definitions/AppTool'
 import { ScheduleToolMetadata, createScheduleTool } from './domain/tools/definitions/ScheduleTool'
@@ -194,9 +193,9 @@ const hasApiKey = (): boolean => {
   toolConfigRepository = new ToolConfigRepository();
 
   // Register all tools with their factories
+  // Note: UserTool is not registered here - it's used automatically in UpdateNode for background user profile updates
   toolRegistry.registerTool(WeatherToolMetadata, toolConfigRepository.getToolConfig('get_weather'), createWeatherTool);
   toolRegistry.registerTool(CryptoToolMetadata, toolConfigRepository.getToolConfig('get_crypto_price'), createCryptoTool);
-  toolRegistry.registerTool(UserToolMetadata, toolConfigRepository.getToolConfig('get_user_info'), createUserTool);
   toolRegistry.registerTool(OpenUrlToolMetadata, toolConfigRepository.getToolConfig('open_url'), createOpenUrlTool);
   toolRegistry.registerTool(BookmarksToolMetadata, toolConfigRepository.getToolConfig('get_bookmarks'), createBookmarksTool);
   toolRegistry.registerTool(InstalledAppsToolMetadata, toolConfigRepository.getToolConfig('get_installed_apps'), createInstalledAppsTool);

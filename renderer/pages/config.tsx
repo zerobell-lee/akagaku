@@ -73,7 +73,7 @@ export default function Config() {
             // Legacy fields for backward compatibility
             openaiApiKey,
             anthropicApiKey,
-            llmService: llmProvider === 'openai' || llmProvider === 'anthropic' ? llmProvider : llmService,
+            llmService: llmProvider, // Always use llmProvider value
             selectedModel: finalModelName,
             temperature,
             openweathermapApiKey,
