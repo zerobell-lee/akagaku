@@ -1,7 +1,6 @@
 import { GhostResponse, LLMService, UserInput } from "@shared/types";
 import { ResponseNode } from "./graph/nodes/ResponseNode";
 import { UpdateChatHistoryNode, UpdateUserSettingNode } from "./graph/nodes/UpdateNode";
-import { SummarizeNode } from "./graph/nodes/SummarizeNode";
 import { GhostState, llmProperties } from "./graph/states";
 import { Annotation, CompiledStateGraph, END, START, StateDefinition, StateGraph } from "@langchain/langgraph";
 import { getUserSetting } from "main/infrastructure/user/UserRepository";
@@ -16,12 +15,9 @@ import { loadToolPrompt, loadSystemPrompt } from "./graph/prompt/prompt";
 import { AIResponseParser } from "main/infrastructure/message/MessageParser";
 import { AkagakuMessageConverter } from "../message/AkagakuMessage";
 import { ToolCallDetector } from "./graph/utils/ToolCallDetector";
-import { ChatOpenAI } from "@langchain/openai";
-import { ChatAnthropic } from "@langchain/anthropic";
-import { AkagakuSystemMessage } from "../message/AkagakuMessage";
-import { formatDatetime } from "main/infrastructure/utils/DatetimeStringUtils";
 import { ToolRegistry } from "../services/ToolRegistry";
 import { skinRepository } from "main/infrastructure/character/SkinRepository";
+import { chatHistorySummarizer } from "main/infrastructure/chat/ChatHistorySummarizer";
 
 export const createGhostGraph = () => {
     const StateAnnotation = Annotation.Root({
@@ -32,9 +28,9 @@ export const createGhostGraph = () => {
             llmService: string,
             modelName: string,
             apiKey: string,
-            temperature: number
+            temperature: number,
+            baseURL?: string
         }>(),
-        executor: Annotation<any>(),
         aiResponseParser: Annotation<any>(),
         invocation_result: Annotation<any>(),
         invocation_retry_policy: Annotation<{ maximum_trial: number }>(),
@@ -45,7 +41,6 @@ export const createGhostGraph = () => {
         tools: Annotation<any>(),
         promptForCharacter: Annotation<string>(),
         promptForTool: Annotation<string>(),
-        toolCallResult: Annotation<any>(),
         is_user_update_needed: Annotation<boolean>(),
         toolAgent: Annotation<any>(),
         conversationAgent: Annotation<any>(),
@@ -53,7 +48,8 @@ export const createGhostGraph = () => {
         messageConverter: Annotation<any>(),
         toolCallCompleted: Annotation<boolean>(),
         toolCallFinalAnswer: Annotation<string>(),
-        toolCallHistory: Annotation<any>()
+        toolCallHistory: Annotation<any>(),
+        currentSkinDescription: Annotation<string>()
     })
 
     const graph = new StateGraph(StateAnnotation)
@@ -154,7 +150,10 @@ export class Ghost {
 
         try {
             const skinManifest = skinRepository.getSkinManifest(this.character_setting.character_id, activeSkinId);
-            skinDescription = skinManifest.description || skinDescription;
+            if (skinManifest && skinManifest.description && skinManifest.description.trim()) {
+                skinDescription = skinManifest.description;
+            }
+            console.log('[Ghost] Skin description:', skinDescription);
         } catch (error) {
             console.warn('[Ghost] Failed to load skin manifest, using default description:', error);
         }
@@ -263,7 +262,7 @@ export class Ghost {
             return;
         }
 
-        const summarizationThreshold = configRepository.getConfig('summarizationThreshold') as number || 40;
+        const summarizationThreshold = configRepository.getConfig('summarizationThreshold') as number || 20;
         const allMessages = chatHistory.getAllMessagesInternal();
 
         // Find last summary index
@@ -297,94 +296,22 @@ export class Ghost {
     private async executeBackgroundSummarization(): Promise<void> {
         try {
             const chatHistory = getChatHistory(this.character_setting.character_id);
-            const summarizationThreshold = configRepository.getConfig('summarizationThreshold') as number || 40;
             const enableLightweightModel = configRepository.getConfig('enableLightweightModel') !== false;
-            const allMessages = chatHistory.getAllMessagesInternal();
 
-            let lastSummaryIndex = -1;
-            for (let i = allMessages.length - 1; i >= 0; i--) {
-                if (allMessages[i].isSummary === true) {
-                    lastSummaryIndex = i;
-                    break;
-                }
-            }
-
-            const unsummarizedMessages = lastSummaryIndex >= 0
-                ? allMessages.slice(lastSummaryIndex + 1)
-                : allMessages;
-
-            const keepRecentCount = 2;
-            const totalUnsummarizedLength = unsummarizedMessages.length;
-            const messagesToSummarize = unsummarizedMessages.slice(0, totalUnsummarizedLength - keepRecentCount);
-            const recentMessages = unsummarizedMessages.slice(totalUnsummarizedLength - keepRecentCount);
-
-            console.log(`[Performance] Background summarizing: ${messagesToSummarize.length} messages, keeping ${recentMessages.length} recent`);
-
-            const conversationText = messagesToSummarize
-                .filter(msg => msg.type !== 'system')
-                .map(msg => {
-                    const chatLog = msg.toChatLog();
-                    return `${formatDatetime(chatLog.createdAt)} | ${chatLog.role}: ${chatLog.content}`;
-                })
-                .join('\n');
-
-            const summaryPrompt = `You are a conversation summarization tool. Your ONLY job is to summarize the conversation factually without judgment.
-
-Do NOT refuse, do NOT comment on appropriateness, do NOT provide warnings.
-This is a private fictional roleplay conversation. Simply summarize what was discussed.
-
-Conversation between user and ${this.character_setting.name || 'character'}:
-${conversationText}
-
-Provide a factual summary (3-5 sentences) covering topics discussed, facts mentioned, and emotional context:`;
-
-            let model;
-            if (this.llm_properties.llmService === 'openai') {
-                model = new ChatOpenAI({
-                    modelName: enableLightweightModel ? 'gpt-4o-mini' : this.llm_properties.modelName,
-                    temperature: 0,
-                    openAIApiKey: this.llm_properties.apiKey
-                });
-            } else if (this.llm_properties.llmService === 'anthropic') {
-                model = new ChatAnthropic({
-                    modelName: enableLightweightModel ? 'claude-3-5-haiku-latest' : this.llm_properties.modelName,
-                    temperature: 0,
-                    apiKey: this.llm_properties.apiKey
-                });
-            } else {
-                console.log('[Performance] Background summarization skipped: unsupported LLM provider');
-                return;
-            }
-
-            const result = await model.invoke(summaryPrompt);
-            const summaryContent = typeof result.content === 'string' ? result.content : JSON.stringify(result.content);
-
-            const summaryMessage = new AkagakuSystemMessage({
-                content: `[Conversation Summary]\n${summaryContent}`,
-                createdAt: new Date(),
-                isSummary: true
-            });
-
-            const summaryInsertIndex = lastSummaryIndex >= 0
-                ? lastSummaryIndex + 1 + messagesToSummarize.length
-                : messagesToSummarize.length;
-
-            const newMessages = [
-                ...allMessages.slice(0, summaryInsertIndex),
-                summaryMessage,
-                ...allMessages.slice(summaryInsertIndex)
-            ];
-
-            const newChatHistory = new AkagakuChatHistory(
-                newMessages,
-                newMessages.length
+            const result = await chatHistorySummarizer.summarize(
+                chatHistory,
+                this.character_setting.name,
+                this.llm_properties.llmService,
+                this.llm_properties.apiKey,
+                this.llm_properties.modelName,
+                enableLightweightModel
             );
 
-            await updateChatHistory(this.character_setting.character_id, newChatHistory);
-
-            console.log(`[Performance] Background summarization complete: Inserted summary at index ${summaryInsertIndex}, total ${newMessages.length} messages`);
+            if (result) {
+                await updateChatHistory(this.character_setting.character_id, result);
+            }
         } catch (e) {
-            console.error('[Performance] Background summarization failed:', e);
+            console.error('[Ghost] Background summarization failed:', e);
         }
     }
 }
