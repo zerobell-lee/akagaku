@@ -17,17 +17,30 @@ interface MessageStats {
     summary: number;
 }
 
+const MESSAGES_PER_PAGE = 50;
+
 export default function Logs() {
     const [logs, setLogs] = useState<ChatLog[]>([])
     const [archives, setArchives] = useState<Archive[]>([])
-    const [currentView, setCurrentView] = useState<string>('current')
     const [stats, setStats] = useState<MessageStats | null>(null)
+    const [currentPage, setCurrentPage] = useState(1)
     const logsEndRef = useRef<HTMLDivElement>(null)
 
-    // Auto-scroll to bottom when logs change
+    // Calculate total pages
+    const totalPages = Math.ceil(logs.length / MESSAGES_PER_PAGE)
+
+    // Get current page messages
+    const currentMessages = logs.slice(
+        (currentPage - 1) * MESSAGES_PER_PAGE,
+        currentPage * MESSAGES_PER_PAGE
+    )
+
+    // Auto-scroll to bottom when on last page
     useEffect(() => {
-        logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }, [logs])
+        if (currentPage === totalPages) {
+            logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+        }
+    }, [logs, currentPage, totalPages])
 
     useEffect(() => {
         const unsubscribe1 = window.ipc.on('receive_chatlogs', (data: ChatLog[] | { current: ChatLog[], archives: Archive[], stats?: MessageStats }) => {
@@ -43,6 +56,9 @@ export default function Logs() {
                 setArchives(data.archives || [])
                 setStats(data.stats || null)
             }
+            // Jump to last page when new logs arrive
+            const newTotalPages = Math.ceil((data.current || data).length / MESSAGES_PER_PAGE)
+            setCurrentPage(newTotalPages || 1)
             console.log('Received chatlogs:', data)
         })
 
@@ -60,20 +76,16 @@ export default function Logs() {
     }, [])
 
     const clearLogs = () => {
-        const reply = confirm('Are you sure you want to clear the chat history?')
+        const reply = confirm('⚠️ WARNING: All chat history will be permanently deleted.\n\nAre you sure you want to continue?\n\nThis action cannot be undone.')
         if (reply) {
             window.ipc.send('user-action', 'RESET_CHAT_HISTORY')
         }
     }
 
-    const loadArchive = (archiveKey: string) => {
-        if (archiveKey === 'current') {
-            // Reload current logs
-            window.ipc.send('user-action', 'LOG_OPENED')
-            setCurrentView('current')
-        } else {
-            window.ipc.send('load-archive', archiveKey)
-            setCurrentView(archiveKey)
+    const goToPage = (page: number) => {
+        if (page >= 1 && page <= totalPages) {
+            setCurrentPage(page)
+            window.scrollTo({ top: 0, behavior: 'smooth' })
         }
     }
 
@@ -92,16 +104,13 @@ export default function Logs() {
             <div className="flex flex-row items-center justify-between px-4 py-2 border-b border-gray-700">
                 <div className="flex items-center gap-3">
                     <h1 className="text-2xl font-bold">Chat Logs</h1>
-                    {currentView === 'current' && stats ? (
+                    {stats ? (
                         <div className="flex items-center gap-2">
                             <span className="text-sm text-gray-400 bg-gray-800 px-2 py-1 rounded">
                                 Total: {stats.total}
                             </span>
                             <span className="text-sm text-green-400 bg-gray-800 px-2 py-1 rounded">
-                                Conversation: {stats.conversation}
-                            </span>
-                            <span className="text-sm text-blue-400 bg-gray-800 px-2 py-1 rounded">
-                                Summary: {stats.summary}
+                                Messages: {stats.conversation}
                             </span>
                         </div>
                     ) : (
@@ -111,21 +120,39 @@ export default function Logs() {
                     )}
                 </div>
 
-                {/* Archive selector */}
-                <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-400">View:</span>
-                    <select
-                        className="bg-gray-800 text-white px-3 py-1 rounded-md border border-gray-700"
-                        value={currentView}
-                        onChange={(e) => loadArchive(e.target.value)}
+                {/* Pagination controls */}
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => goToPage(1)}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1 bg-gray-800 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700"
                     >
-                        <option value="current">Current (Recent)</option>
-                        {archives.map((archive) => (
-                            <option key={archive.key} value={archive.key}>
-                                Archive - {formatTimestamp(archive.timestamp)}
-                            </option>
-                        ))}
-                    </select>
+                        ««
+                    </button>
+                    <button
+                        onClick={() => goToPage(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1 bg-gray-800 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700"
+                    >
+                        ‹
+                    </button>
+                    <span className="text-sm text-gray-400">
+                        Page {currentPage} / {totalPages}
+                    </span>
+                    <button
+                        onClick={() => goToPage(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-1 bg-gray-800 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700"
+                    >
+                        ›
+                    </button>
+                    <button
+                        onClick={() => goToPage(totalPages)}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-1 bg-gray-800 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700"
+                    >
+                        »»
+                    </button>
                 </div>
             </div>
 
@@ -134,30 +161,37 @@ export default function Logs() {
                     <div className="text-center text-gray-500 py-8">No messages</div>
                 ) : (
                     <>
-                        {logs.map((log, index) => (
-                            <div className="flex flex-row gap-4 py-4 bg-gray-900 border-b border-gray-800 hover:bg-gray-800 hover:text-white" key={index}>
-                                <div className="shrink-0 min-w-[120px] flex flex-col items-center justify-center gap-1">
-                                    <div className="text-2xl text-gray-300 font-semibold">{log.role}</div>
-                                    <div className="text-xs text-gray-500">{formatTimestamp(log.createdAt)}</div>
+                        {currentMessages.map((log, index) => {
+                            const globalIndex = (currentPage - 1) * MESSAGES_PER_PAGE + index;
+                            return (
+                                <div className="flex flex-row gap-4 py-4 bg-gray-900 border-b border-gray-800 hover:bg-gray-800 hover:text-white" key={globalIndex}>
+                                    <div className="shrink-0 min-w-[120px] flex flex-col items-center justify-center gap-1">
+                                        <div className="text-2xl text-gray-300 font-semibold">{log.role}</div>
+                                        <div className="text-xs text-gray-500">{formatTimestamp(log.createdAt)}</div>
+                                        <div className="text-xs text-gray-600">#{globalIndex + 1}</div>
+                                    </div>
+                                    <div className="w-px bg-gray-700 shrink-0"></div>
+                                    <div className="text-3xl text-gray-100 flex-1 whitespace-pre-wrap break-words leading-relaxed">{log.content}</div>
                                 </div>
-                                <div className="w-px bg-gray-700 shrink-0"></div>
-                                <div className="text-3xl text-gray-100 flex-1 whitespace-pre-wrap break-words leading-relaxed">{log.content}</div>
-                            </div>
-                        ))}
+                            );
+                        })}
                         <div ref={logsEndRef} />
                     </>
                 )}
             </div>
 
-            {currentView === 'current' && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-700 bg-gray-800">
                 <button
-                    className="text-white mx-4 my-4 font-bold rounded-md"
-                    style={{backgroundColor: 'red', color: 'white', padding: '10px', borderRadius: '5px'}}
+                    className="text-white font-bold rounded-md bg-red-700 hover:bg-red-800 px-6 py-3 border-2 border-red-500 shadow-lg transition-all hover:shadow-red-500/50"
                     onClick={clearLogs}
                 >
-                    RESET CHAT HISTORY
+                    ⚠️ RESET CHAT HISTORY
                 </button>
-            )}
+
+                <div className="text-sm text-gray-400">
+                    Showing {(currentPage - 1) * MESSAGES_PER_PAGE + 1} - {Math.min(currentPage * MESSAGES_PER_PAGE, logs.length)} of {logs.length}
+                </div>
+            </div>
         </div>
     )
 }

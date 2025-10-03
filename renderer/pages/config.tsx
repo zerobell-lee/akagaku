@@ -472,7 +472,7 @@ export default function Config() {
                     </p>
                 </div>
 
-                {Object.entries(groupedTools).map(([category, tools]) => (
+                {Object.entries(groupedTools).map(([category, tools]: [string, any[]]) => (
                     <div key={category} className="border-b border-gray-700 pb-4">
                         <h3 className="text-lg font-semibold mb-3 capitalize">{category} Tools</h3>
 

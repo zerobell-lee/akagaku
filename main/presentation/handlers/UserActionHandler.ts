@@ -715,8 +715,23 @@ export class UserActionHandler implements IIPCHandler {
       }
       this.mainWindow.webContents.send('ghost-message', response);
 
-      const chatHistory = getChatHistory(this.characterName);
-      this.logsWindow?.webContents.send('receive_chatlogs', chatHistory.toChatLogs());
+      // Update logs window with ALL messages (not just windowed history)
+      if (this.logsWindow) {
+        const allMessages = chatHistoryRepository.getAllMessages(this.characterName);
+        const chatLogs = allMessages
+          .filter(msg => msg.type !== 'system')
+          .map(msg => msg.toChatLog());
+
+        this.logsWindow.webContents.send('receive_chatlogs', {
+          current: chatLogs,
+          archives: [],
+          stats: {
+            total: allMessages.length,
+            conversation: allMessages.length,
+            summary: 0
+          }
+        });
+      }
 
       this.ghostIsProcessingMessage = false;
     } catch (error) {

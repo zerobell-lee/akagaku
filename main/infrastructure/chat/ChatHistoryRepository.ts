@@ -193,8 +193,11 @@ class ElectronStoreChatHistoryRepository implements IChatHistoryRepository {
   }
 }
 
-// Singleton instance
-const chatHistoryRepository = new ElectronStoreChatHistoryRepository();
+// Import SQLite repository
+import { SQLiteChatHistoryRepository } from './SQLiteChatHistoryRepository';
+
+// Singleton instance - now using SQLite
+const chatHistoryRepository = new SQLiteChatHistoryRepository();
 
 // Export singleton instance
 export { chatHistoryRepository };

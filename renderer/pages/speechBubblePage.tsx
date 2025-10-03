@@ -80,7 +80,7 @@ export default function SpeechBubblePage() {
                 setIsComplete(true);
                 setIsStreaming(false);
                 // Send streaming complete event to main process
-                window.ipc.send('streaming-complete');
+                window.ipc.send('streaming-complete', {});
                 closeSpeechBubbleWithTimeout();
             }
         })

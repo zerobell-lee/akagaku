@@ -168,6 +168,19 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
   // Initialize config repository after setting userData path
   initConfigRepository();
 
+  // Run SQLite migration for chat history (one-time operation)
+  const { ChatHistoryMigration } = await import('./infrastructure/database/migrations/migrate');
+  try {
+    await ChatHistoryMigration.run();
+  } catch (error) {
+    console.error('[Migration] Failed to migrate chat history:', error);
+    // Show error dialog to user
+    dialog.showErrorBox(
+      'Migration Error',
+      'Failed to migrate chat history to SQLite. Please check logs for details.'
+    );
+  }
+
   // Initialize tool registry
   toolRegistry = new ToolRegistry();
   toolConfigRepository = new ToolConfigRepository();
