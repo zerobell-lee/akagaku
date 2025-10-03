@@ -23,6 +23,7 @@ import { ConfigHandler } from './presentation/handlers/ConfigHandler'
 import { TriggerManager } from './domain/services/TriggerManager'
 import { triggerRegistry } from './infrastructure/triggers/TriggerRegistry'
 import { logger } from './infrastructure/config/logger'
+import { setRelationshipUpdateCallback } from './domain/ghost/graph/nodes/UpdateNode'
 
 
 // app.commandLine.appendSwitch('high-dpi-support', '1');
@@ -291,14 +292,21 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
   let isGhostHidden = false;
 
   try {
-    // macOS and Windows handle tray icons differently
-    // For now, use the existing icon files
-    // TODO: User needs to add a proper 16x16 or 32x32 PNG for macOS tray
-    const iconPath = process.platform === 'darwin'
-      ? path.join(__dirname, '../resources/icon.icns')
-      : path.join(__dirname, '../resources/icon.ico');
+    // macOS uses template images for proper dark/light mode support
+    // Windows uses .ico files
+    let iconPath: string;
+    if (process.platform === 'darwin') {
+      // macOS: Use template PNG (16x16, automatically scales for Retina)
+      iconPath = path.join(__dirname, '../resources/iconTemplate.png');
+      const trayIcon = nativeImage.createFromPath(iconPath);
+      trayIcon.setTemplateImage(true); // Enable template mode for macOS
+      tray = new Tray(trayIcon);
+    } else {
+      // Windows: Use .ico file
+      iconPath = path.join(__dirname, '../resources/icon.ico');
+      tray = new Tray(iconPath);
+    }
 
-    tray = new Tray(iconPath);
     tray.setToolTip('Akagaku - Desktop Character');
 
     tray.on('click', () => {
@@ -337,6 +345,11 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
     configRepository,
     toolConfigRepository,
     isProd
+  });
+
+  // Set up relationship update callback from UpdateNode to UserActionHandler
+  setRelationshipUpdateCallback((affection: number, attitude: string) => {
+    userActionHandler.broadcastRelationshipUpdate(affection, attitude);
   });
 
   // Initialize ConfigHandler

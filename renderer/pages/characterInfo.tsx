@@ -22,7 +22,16 @@ export default function CharacterInfoPage() {
       setCharacterInfo(data);
     };
 
-    const unsubscribe = window.ipc.on('character-info-response', handler);
+    const relationshipHandler = (data: { affection: number; attitude: string }) => {
+      console.log('[CharacterInfo] Received relationship update:', data);
+      setCharacterInfo(prev => prev ? {
+        ...prev,
+        relationship: data
+      } : null);
+    };
+
+    const unsubscribeInfo = window.ipc.on('character-info-response', handler);
+    const unsubscribeRelationship = window.ipc.on('relationship-updated', relationshipHandler);
 
     // Fallback: Request data if not received within 500ms
     const timeoutId = setTimeout(() => {
@@ -34,7 +43,8 @@ export default function CharacterInfoPage() {
 
     return () => {
       clearTimeout(timeoutId);
-      unsubscribe();
+      unsubscribeInfo();
+      unsubscribeRelationship();
     };
   }, []);
 
@@ -105,7 +115,7 @@ export default function CharacterInfoPage() {
         {/* Skins Section */}
         <div>
           <h2 className="text-4xl font-semibold mb-6">Skins</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {characterInfo.skins.map((skin) => (
               <div
                 key={skin.skin_id}
@@ -116,13 +126,13 @@ export default function CharacterInfoPage() {
                 }`}
                 onClick={() => handleSkinChange(skin.skin_id)}
               >
-                {/* Thumbnail placeholder */}
-                <div className="w-full h-48 bg-gray-700 rounded-md mb-4 flex items-center justify-center">
+                {/* Thumbnail - 3:4 aspect ratio (portrait) */}
+                <div className="w-full aspect-[3/4] bg-gray-700 rounded-md mb-4 flex items-center justify-center">
                   {skin.thumbnail ? (
                     <img
                       src={`local-resource://character/${characterInfo.characterName}/skins/${skin.skin_id}/${skin.thumbnail}`}
                       alt={skin.skin_name}
-                      className="w-full h-full object-cover rounded-md"
+                      className="w-full h-full object-contain rounded-md"
                     />
                   ) : (
                     <span className="text-gray-500 text-xl">No Image</span>

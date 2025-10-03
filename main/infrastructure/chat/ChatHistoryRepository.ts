@@ -111,14 +111,18 @@ class ElectronStoreChatHistoryRepository implements IChatHistoryRepository {
 
     // Archive rotation: keep only recent 1000 messages in current file
     const ARCHIVE_THRESHOLD = 1000;
-    const KEEP_RECENT = 500;
+    const KEEP_RECENT = 1000;
 
     if (allMessages.length > ARCHIVE_THRESHOLD) {
       const toArchive = allMessages.slice(0, allMessages.length - KEEP_RECENT);
       const toKeep = allMessages.slice(allMessages.length - KEEP_RECENT);
 
-      // Save archived messages with timestamp
-      const archiveKey = `${character_name}/archive_${Date.now()}.json`;
+      // Generate archive key with date and sequence number
+      const now = new Date();
+      const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+      const timeStr = now.toISOString().split('T')[1].replace(/:/g, '-').split('.')[0]; // HH-MM-SS
+      const archiveKey = `${character_name}/archive_${dateStr}_${timeStr}.json`;
+
       getChatHistoryStore().set(archiveKey, toArchive);
 
       // Save recent messages to current file

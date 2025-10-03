@@ -1,5 +1,6 @@
 skin_id: suit
-skin_name: butlersuit
-description: butler suit, black and white colored
+skin_name: suit
+description: black tailored suit with matching trousers, white dress shirt, black tie with orange accent, white gloves
+thumbnail: thumbnail.png
 version: 1.0.0
 author: zerobell-lee

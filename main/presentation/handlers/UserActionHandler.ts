@@ -430,10 +430,16 @@ export class UserActionHandler implements IIPCHandler {
 
     this.logsWindow?.webContents.send('receive_chatlogs', {
       current: chatLogs,
-      archives: archiveList.map(key => ({
-        key,
-        timestamp: key.split('_').pop()?.replace('.json', '') || ''
-      })),
+      archives: archiveList.map(key => {
+        // Extract date and time from key: character_name/archive_YYYY-MM-DD_HH-MM-SS.json
+        const parts = key.split('/').pop()?.replace('archive_', '').replace('.json', '') || '';
+        const [dateStr, timeStr] = parts.split('_');
+        const displayName = timeStr ? `${dateStr} ${timeStr.replace(/-/g, ':')}` : parts;
+        return {
+          key,
+          timestamp: displayName
+        };
+      }),
       stats: {
         total: allMessages.length,
         conversation: allMessages.length,
@@ -524,6 +530,20 @@ export class UserActionHandler implements IIPCHandler {
         attitude: relationshipData.attitude_to_user
       }
     });
+  }
+
+  /**
+   * Broadcast relationship update to character info window
+   * Called from UpdateNode when relationship changes during conversation
+   */
+  broadcastRelationshipUpdate(affection: number, attitude: string): void {
+    if (this.characterInfoWindow && !this.characterInfoWindow.isDestroyed()) {
+      logger.debug('[UserActionHandler] Broadcasting relationship update:', { affection, attitude });
+      this.characterInfoWindow.webContents.send('relationship-updated', {
+        affection,
+        attitude
+      });
+    }
   }
 
   /**

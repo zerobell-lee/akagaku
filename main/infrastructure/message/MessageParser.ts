@@ -59,7 +59,7 @@ export class AIResponseParser {
     private tryParseMarkdown(content: string): GhostResponse | null {
         const emoticonMatch = content.match(/EMOTICON:\s*(\w+)/i);
         // Support both ADD_AFFECTION (new) and AFFECTION (legacy) for backward compatibility
-        const affectionMatch = content.match(/ADD_AFFECTION:\s*(-?\d+)/i) || content.match(/AFFECTION:\s*(-?\d+)/i);
+        const affectionMatch = content.match(/ADD_AFFECTION:\s*([+-]?\d+)/i) || content.match(/AFFECTION:\s*([+-]?\d+)/i);
         const messageMatch = content.match(/MESSAGE:\s*\n?([\s\S]+)/i);
 
         if (!emoticonMatch || !affectionMatch || !messageMatch) {

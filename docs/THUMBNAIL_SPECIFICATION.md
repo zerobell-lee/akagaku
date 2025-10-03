@@ -10,9 +10,10 @@ This document defines the thumbnail image specifications for characters and skin
 - **File extension**: `.png`, `.jpg`, `.jpeg`, `.webp`
 
 ### Image Dimensions
-- **Character Thumbnail**: 256x256 pixels (1:1 aspect ratio)
-- **Skin Thumbnail**: 256x256 pixels (1:1 aspect ratio)
-- **Maximum file size**: 500KB per thumbnail
+- **Character Thumbnail**: 600x800 pixels (3:4 aspect ratio, portrait orientation)
+- **Skin Thumbnail**: 600x800 pixels (3:4 aspect ratio, portrait orientation)
+- **Maximum file size**: 1MB per thumbnail
+- **Rationale**: Vertical aspect ratio matches typical character proportions, high resolution for quality display
 
 ### Quality Guidelines
 - **Resolution**: 72 DPI minimum
@@ -86,8 +87,8 @@ thumbnail: "thumbnail.png"  # Relative path from skin directory
 ### Image Validation
 - Must be valid image file (readable by image decoder)
 - Must match supported format (PNG/JPEG/WebP)
-- Should meet dimension requirements (256x256)
-- Should not exceed file size limit (500KB)
+- Should meet dimension requirements (600x800, 3:4 aspect ratio)
+- Should not exceed file size limit (1MB)
 
 ### Manifest Validation
 - `thumbnail` field must be relative path string (no absolute paths)
@@ -125,16 +126,16 @@ thumbnail: "thumbnail.png"  # Relative path from skin directory
 ### Error Handling
 - Missing file: Log warning, use placeholder
 - Invalid format: Log error, use placeholder
-- Oversized file: Log warning, attempt to load anyway
+- Oversized file (>1MB): Log warning, attempt to load anyway
 - Path traversal attempt: Log security warning, reject
 
 ## Future Considerations
 
 ### Multiple Sizes
 May support multiple thumbnail sizes in future:
-- `thumbnail_small.png` (128x128)
-- `thumbnail_medium.png` (256x256, current default)
-- `thumbnail_large.png` (512x512)
+- `thumbnail_small.png` (300x400, 3:4 aspect ratio)
+- `thumbnail_medium.png` (600x800, current default, 3:4 aspect ratio)
+- `thumbnail_large.png` (1200x1600, 3:4 aspect ratio)
 
 ### Animated Thumbnails
 May support animated thumbnails in future:

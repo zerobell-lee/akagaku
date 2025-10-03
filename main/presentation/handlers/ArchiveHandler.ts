@@ -41,9 +41,12 @@ export class ArchiveHandler implements IIPCHandler {
     logger.debug('[ArchiveHandler] Loading archive:', archiveKey);
 
     const archiveMessages = chatHistoryRepository.getArchive(archiveKey);
+    const chatLogs = archiveMessages
+      .filter(msg => msg.type !== 'system')
+      .map(msg => msg.toChatLog());
 
     if (this.logsWindow && !this.logsWindow.isDestroyed()) {
-      this.logsWindow.webContents.send('archive-loaded', archiveMessages);
+      this.logsWindow.webContents.send('receive_archive_logs', chatLogs);
     } else {
       logger.warn('[ArchiveHandler] Logs window not available');
     }

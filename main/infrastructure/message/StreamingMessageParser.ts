@@ -45,7 +45,7 @@ export class StreamingMessageParser {
 
         // Step 2: Parse ADD_AFFECTION (backward compatible with AFFECTION)
         if (this.affection === null && this.emoticon) {
-            const match = this.buffer.match(/ADD_AFFECTION:\s*(-?\d+)/i) || this.buffer.match(/AFFECTION:\s*(-?\d+)/i);
+            const match = this.buffer.match(/ADD_AFFECTION:\s*([+-]?\d+)/i) || this.buffer.match(/AFFECTION:\s*([+-]?\d+)/i);
             if (match) {
                 this.affection = parseInt(match[1]);
                 console.log('[StreamingParser] Parsed add_affection:', this.affection);

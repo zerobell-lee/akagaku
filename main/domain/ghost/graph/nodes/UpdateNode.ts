@@ -11,6 +11,19 @@ import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { formatDatetime } from "main/infrastructure/utils/DatetimeStringUtils";
 import { configRepository } from "main/infrastructure/config/ConfigRepository";
 
+// Global callback for broadcasting relationship updates
+let relationshipUpdateCallback: ((affection: number, attitude: string) => void) | null = null;
+
+export function setRelationshipUpdateCallback(callback: (affection: number, attitude: string) => void): void {
+    relationshipUpdateCallback = callback;
+}
+
+function broadcastRelationshipUpdate(affection: number, attitude: string): void {
+    if (relationshipUpdateCallback) {
+        relationshipUpdateCallback(affection, attitude);
+    }
+}
+
 export const UpdateChatHistoryNode = new RunnableLambda<GhostState, Partial<GhostState>>({
     func: async (state: GhostState) => {
         const { update_payload, character_setting, is_user_update_needed } = state;
@@ -20,6 +33,9 @@ export const UpdateChatHistoryNode = new RunnableLambda<GhostState, Partial<Ghos
         const { relationship, history } = update_payload;
         await updateCharacterRelationships(relationship.character, relationship.affection_to_user, relationship.attitude_to_user);
         await updateChatHistory(character_setting.character_id, history);
+
+        // Broadcast relationship update to character info window
+        broadcastRelationshipUpdate(relationship.affection_to_user, relationship.attitude_to_user);
 
         // Trigger background user setting update if needed
         if (is_user_update_needed) {
