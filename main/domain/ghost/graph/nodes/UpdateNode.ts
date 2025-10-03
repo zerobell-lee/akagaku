@@ -1,7 +1,7 @@
 import { RunnableLambda } from "@langchain/core/runnables";
 import { GhostState } from "../states";
 import { updateCharacterRelationships } from "main/infrastructure/user/RelationshipRepository";
-import { updateChatHistory } from "main/infrastructure/chat/ChatHistoryRepository";
+import { updateChatHistory, chatHistoryRepository } from "main/infrastructure/chat/ChatHistoryRepository";
 import { AgentExecutor } from "langchain/agents";
 import { createToolCallingAgent } from "langchain/agents";
 import { ChatAnthropic } from "@langchain/anthropic";
@@ -91,7 +91,12 @@ async function executeUpdateUserSettingInBackground(state: GhostState): Promise<
         ? state.user_setting
         : JSON.stringify(state.user_setting, null, 2);
 
-    const chatHistoryStr = state.update_payload?.history.getMessages()
+    // Get recent raw messages directly from DB (excludes system messages, regardless of summary state)
+    const recentMessages = chatHistoryRepository.getRecentRawMessages(
+        state.character_setting.character_id,
+        10
+    );
+    const chatHistoryStr = recentMessages
         .map(message => message.toChatLog())
         .map(chatLog => `${formatDatetime(chatLog.createdAt)} | ${chatLog.role}: ${chatLog.content}`)
         .join('\n') || '';

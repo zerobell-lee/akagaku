@@ -332,6 +332,9 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
         mainWindow.show();
         isGhostHidden = false;
 
+        // Update last interaction time to prevent interval trigger from firing
+        userActionHandler.updateLastInteraction();
+
         // Resume triggers when restoring from tray
         triggerManager.resume();
 
@@ -407,15 +410,15 @@ const loadUrlOnBrowserWindow = (window: BrowserWindow, url: string) => {
         if (topic) {
           console.log(`[TriggerManager] Selected topic: ${topic.id}`);
 
-          // Send chit-chat with topic content
-          await ghost.doChitChat(topic.content);
+          // Send chit-chat with topic content (via UserActionHandler to show in UI)
+          await userActionHandler.handleChitChatTrigger(topic.content);
 
           // Mark topic as used
           topicManager.markTopicUsed(topic.id);
           topicRepository.saveTopicUsage(characterName, topic.id);
         } else {
           console.log('[TriggerManager] No available topics, using default chit-chat');
-          await ghost.doChitChat();
+          await userActionHandler.handleChitChatTrigger();
         }
       } else {
         // Other triggers use normal system message

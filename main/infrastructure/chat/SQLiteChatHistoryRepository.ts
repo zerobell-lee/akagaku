@@ -182,6 +182,25 @@ export class SQLiteChatHistoryRepository implements IChatHistoryRepository {
   }
 
   /**
+   * Get recent raw messages regardless of summary state
+   * Excludes system messages, returns actual conversation messages
+   */
+  getRecentRawMessages(character_name: string, limit: number): AkagakuBaseMessage[] {
+    const db = SQLiteDatabase.getInstance();
+
+    // Get recent messages from DB, excluding system messages
+    const rows = db.prepare(`
+      SELECT * FROM messages
+      WHERE character = ? AND type != 'system'
+      ORDER BY created_timestamp DESC
+      LIMIT ?
+    `).all(character_name, limit) as MessageRow[];
+
+    // Reverse to get chronological order (oldest to newest)
+    return rows.reverse().map(row => this.rowToMessage(row));
+  }
+
+  /**
    * Convert database row to AkagakuBaseMessage
    */
   private rowToMessage(row: MessageRow): AkagakuBaseMessage {

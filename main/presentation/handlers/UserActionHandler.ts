@@ -327,8 +327,9 @@ export class UserActionHandler implements IIPCHandler {
   async handleOpenConfig(): Promise<void> {
     if (!this.configWindow) {
       this.configWindow = createWindow('config', {
-        width: 600,
+        width: 900,
         height: 800,
+        title: 'Akagaku - Settings',
         transparent: false,
         frame: true,
         webPreferences: {
@@ -409,6 +410,7 @@ export class UserActionHandler implements IIPCHandler {
       this.logsWindow = createWindow('logs', {
         width: 1400,
         height: 800,
+        title: 'Akagaku - Chat History',
         transparent: false,
         frame: true,
         webPreferences: {
@@ -492,6 +494,7 @@ export class UserActionHandler implements IIPCHandler {
       this.characterInfoWindow = createWindow('character-info', {
         width: 1000,
         height: 800,
+        title: 'Akagaku - Character Info',
         transparent: false,
         frame: true,
         webPreferences: {
@@ -601,6 +604,22 @@ export class UserActionHandler implements IIPCHandler {
       skipGreeting: true, // Don't trigger greeting on skin change
     };
     this.mainWindow.webContents.send('character_loaded', characterProperties);
+
+    // macOS: Force window redraw to clear shadow ghosting
+    if (process.platform === 'darwin') {
+      // Method 1: Invalidate compositing to force re-render
+      this.mainWindow.webContents.invalidate();
+
+      // Method 2: Micro-resize trick to force macOS to recalculate window shadow
+      const currentBounds = this.mainWindow.getBounds();
+      this.mainWindow.setBounds({
+        ...currentBounds,
+        width: currentBounds.width + 1
+      });
+      setTimeout(() => {
+        this.mainWindow.setBounds(currentBounds);
+      }, 50);
+    }
 
     // Send system message to ghost about skin change
     await this.handleUserMessage({
@@ -898,5 +917,14 @@ export class UserActionHandler implements IIPCHandler {
     }
 
     await this.sendGhostMessage((g) => g.sendRawMessage(message));
+  }
+
+  /**
+   * Handle chit-chat trigger with topic content
+   * Public method for trigger manager to initiate ghost conversations
+   */
+  async handleChitChatTrigger(topicContent?: string): Promise<void> {
+    // Don't update last interaction time - this is ghost-initiated
+    await this.sendGhostMessage((g) => g.doChitChat(topicContent));
   }
 }
