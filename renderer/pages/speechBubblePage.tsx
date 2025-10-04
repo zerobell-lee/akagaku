@@ -12,6 +12,10 @@ export default function SpeechBubblePage() {
     const isStreamingRef = useRef<boolean>(false)
 
     useEffect(() => {
+        // Request initial style configuration on mount
+        window.ipc.send('user-action', 'REQUEST_SPEECH_BUBBLE_STYLE');
+        console.log('[SpeechBubble] Requested initial style configuration');
+
         window.ipc.on('ghost-message-loading', (isLoading: boolean) => {
             if (isLoading) {
                 // Clear any existing timeout when new message starts loading
@@ -91,30 +95,40 @@ export default function SpeechBubblePage() {
             fontSize?: number;
             customCSS?: string;
         }) => {
+            console.log('[SpeechBubble] Received style update:', styleConfig);
+
             // Apply styles with retry to ensure DOM is ready
             const applyStyles = () => {
                 const speechBubbleElement = document.querySelector('.speech-bubble') as HTMLElement;
                 if (!speechBubbleElement) {
+                    console.log('[SpeechBubble] .speech-bubble not found, retrying in 100ms...');
                     setTimeout(applyStyles, 100);
                     return;
                 }
 
+                console.log('[SpeechBubble] Found .speech-bubble element, applying styles...');
+
                 // Apply font family
                 if (styleConfig.fontFamily !== undefined) {
                     if (styleConfig.fontFamily === '') {
+                        console.log('[SpeechBubble] Clearing font family');
                         speechBubbleElement.style.fontFamily = '';
                     } else {
+                        console.log('[SpeechBubble] Setting font family to:', styleConfig.fontFamily);
                         speechBubbleElement.style.fontFamily = styleConfig.fontFamily;
                     }
                 }
 
                 // Apply font size
                 if (styleConfig.fontSize !== undefined) {
+                    console.log('[SpeechBubble] Setting font size to:', styleConfig.fontSize);
+                    speechBubbleElement.style.fontFamily;
                     speechBubbleElement.style.fontSize = `${styleConfig.fontSize}px`;
                 }
 
                 // Apply custom CSS
                 if (styleConfig.customCSS !== undefined) {
+                    console.log('[SpeechBubble] Applying custom CSS');
                     let customStyleElement = document.getElementById('custom-speech-bubble-style');
                     if (!customStyleElement) {
                         customStyleElement = document.createElement('style');
@@ -123,6 +137,11 @@ export default function SpeechBubblePage() {
                     }
                     customStyleElement.textContent = styleConfig.customCSS;
                 }
+
+                console.log('[SpeechBubble] Final computed style:', {
+                    fontFamily: window.getComputedStyle(speechBubbleElement).fontFamily,
+                    fontSize: window.getComputedStyle(speechBubbleElement).fontSize
+                });
             };
 
             applyStyles();

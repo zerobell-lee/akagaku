@@ -695,6 +695,9 @@ export class UserActionHandler implements IIPCHandler {
       case 'OPEN_CHARACTER_INFO':
         await this.handleOpenCharacterInfo();
         break;
+      case 'REQUEST_SPEECH_BUBBLE_STYLE':
+        await this.handleRequestSpeechBubbleStyle();
+        break;
       case 'GET_CHARACTER_INFO':
         await this.handleGetCharacterInfo();
         break;
@@ -901,6 +904,28 @@ export class UserActionHandler implements IIPCHandler {
   }
 
   /**
+   * Handle REQUEST_SPEECH_BUBBLE_STYLE action
+   * Sends current speech bubble style configuration to renderer
+   */
+  async handleRequestSpeechBubbleStyle(): Promise<void> {
+    const speechBubbleFontFamily = this.configRepository.getConfig('speechBubbleFontFamily') as string;
+    const speechBubbleFontSize = this.configRepository.getConfig('speechBubbleFontSize') as number;
+    const speechBubbleCustomCSS = this.configRepository.getConfig('speechBubbleCustomCSS') as string;
+
+    console.log('[UserActionHandler] Sending speech bubble style:', {
+      fontFamily: speechBubbleFontFamily,
+      fontSize: speechBubbleFontSize,
+      customCSS: speechBubbleCustomCSS
+    });
+
+    this.speechBubbleWindow?.webContents.send('update-speech-bubble-style', {
+      fontFamily: speechBubbleFontFamily || '',
+      fontSize: speechBubbleFontSize || 16,
+      customCSS: speechBubbleCustomCSS || ''
+    });
+  }
+
+  /**
    * Apply custom styling to speech bubble
    */
   private applySpeechBubbleStyle(): void {
@@ -908,13 +933,18 @@ export class UserActionHandler implements IIPCHandler {
     const speechBubbleFontSize = this.configRepository.getConfig('speechBubbleFontSize') as number;
     const speechBubbleCustomCSS = this.configRepository.getConfig('speechBubbleCustomCSS') as string;
 
-    if (speechBubbleFontFamily || speechBubbleFontSize || speechBubbleCustomCSS) {
-      this.speechBubbleWindow?.webContents.send('update-speech-bubble-style', {
-        fontFamily: speechBubbleFontFamily || '',
-        fontSize: speechBubbleFontSize || 16,
-        customCSS: speechBubbleCustomCSS || ''
-      });
-    }
+    console.log('[UserActionHandler] Applying speech bubble style:', {
+      fontFamily: speechBubbleFontFamily,
+      fontSize: speechBubbleFontSize,
+      customCSS: speechBubbleCustomCSS
+    });
+
+    // Always send style update to speech bubble window
+    this.speechBubbleWindow?.webContents.send('update-speech-bubble-style', {
+      fontFamily: speechBubbleFontFamily || '',
+      fontSize: speechBubbleFontSize || 16,
+      customCSS: speechBubbleCustomCSS || ''
+    });
   }
 
   /**
