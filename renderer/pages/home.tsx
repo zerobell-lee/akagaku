@@ -77,10 +77,8 @@ export default function HomePage() {
 
   return (
     <React.Fragment>
-      <div className="absolute right-0 bottom-0">
-        <div className="flex flex-row">
-          {character && <Character {...characterDisplayProperties} displayScale={displayScale} />}
-        </div>
+      <div className="w-full h-full flex items-end justify-end">
+        {character && <Character {...characterDisplayProperties} displayScale={displayScale} />}
       </div>
     </React.Fragment>
   )
