@@ -1,5 +1,5 @@
 import path from 'path'
-import { app, BrowserWindow, ipcMain, protocol, screen, Tray, nativeImage, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, protocol, screen, Tray, nativeImage, shell, globalShortcut } from 'electron'
 import serve from 'electron-serve'
 import { createWindow } from './helpers'
 import { PlatformUtils } from './helpers/PlatformUtils'
@@ -180,6 +180,17 @@ const hasApiKey = (): boolean => {
   }
 
   console.log('[DEBUG] userData path:', app.getPath('userData'));
+
+  // Register global shortcut for DevTools in development mode
+  if (!isProd) {
+    globalShortcut.register('CommandOrControl+Option+I', () => {
+      const focusedWindow = BrowserWindow.getFocusedWindow();
+      if (focusedWindow) {
+        focusedWindow.webContents.toggleDevTools();
+      }
+    });
+    console.log('[DEBUG] DevTools shortcut registered: Cmd+Opt+I');
+  }
 
   // Auto-migrate data files to userData directory structure
   const { dataPathManager } = await import('./infrastructure/config/DataPathManager');
@@ -591,6 +602,12 @@ const hasApiKey = (): boolean => {
 
 app.on('window-all-closed', () => {
   app.quit()
+})
+
+app.on('will-quit', () => {
+  if (!isProd) {
+    globalShortcut.unregisterAll();
+  }
 })
 
 ipcMain.on('message', async (event, arg) => {

@@ -54,7 +54,7 @@ export default function Config() {
 
     // Speech bubble styling
     const [speechBubbleFontFamily, setSpeechBubbleFontFamily] = useState('');
-    const [speechBubbleFontSize, setSpeechBubbleFontSize] = useState(16);
+    const [speechBubbleFontSize, setSpeechBubbleFontSize] = useState(24);
     const [speechBubbleCustomCSS, setSpeechBubbleCustomCSS] = useState('');
     const [systemFonts, setSystemFonts] = useState<string[]>([]);
     const [fontSearchQuery, setFontSearchQuery] = useState('');
@@ -147,7 +147,7 @@ export default function Config() {
         // Speech bubble styling
         setSpeechBubbleFontFamily(response.speechBubbleFontFamily || '');
         setFontSearchQuery(response.speechBubbleFontFamily || '');
-        setSpeechBubbleFontSize(response.speechBubbleFontSize || 16);
+        setSpeechBubbleFontSize(response.speechBubbleFontSize || 24);
         setSpeechBubbleCustomCSS(response.speechBubbleCustomCSS || '');
 
         // Tool configurations
@@ -245,9 +245,9 @@ export default function Config() {
         <div className="space-y-4">
             {/* LLM Provider Selection */}
             <label className="flex flex-col gap-2">
-                <span className="text-2xl">LLM Provider</span>
+                <span className="text-3xl">LLM Provider</span>
                 <select
-                    className="bg-gray-700 text-white px-4 py-2 rounded-md"
+                    className="bg-gray-700 text-white px-4 py-2 rounded-md text-xl"
                     value={llmProvider}
                     onChange={(e) => updateProvider(e.target.value as LLMProvider)}
                 >
@@ -263,12 +263,12 @@ export default function Config() {
 
             {/* Model Selection */}
             <label className="flex flex-col gap-2">
-                <span className="text-2xl">Model</span>
+                <span className="text-3xl">Model</span>
 
                 {/* Recommended models dropdown */}
                 {!useCustomModel && recommendedModels.length > 0 && (
                     <select
-                        className="bg-gray-700 text-white px-4 py-2 rounded-md"
+                        className="bg-gray-700 text-white px-4 py-2 rounded-md text-xl"
                         value={modelName}
                         onChange={(e) => setModelName(e.target.value)}
                     >
@@ -282,7 +282,7 @@ export default function Config() {
                 {useCustomModel && (
                     <input
                         type="text"
-                        className="bg-gray-700 text-white px-4 py-2 rounded-md"
+                        className="bg-gray-700 text-white px-4 py-2 rounded-md text-xl"
                         placeholder="Enter custom model name..."
                         value={customModelInput}
                         onChange={(e) => setCustomModelInput(e.target.value)}
@@ -292,7 +292,7 @@ export default function Config() {
                 {/* Toggle between dropdown and custom input */}
                 {recommendedModels.length > 0 && (
                     <button
-                        className="text-blue-400 hover:text-blue-300 text-base text-left"
+                        className="text-blue-400 hover:text-blue-300 text-xl text-left"
                         onClick={() => {
                             setUseCustomModel(!useCustomModel);
                             if (!useCustomModel) {
@@ -307,21 +307,21 @@ export default function Config() {
                 {recommendedModels.length === 0 && (
                     <input
                         type="text"
-                        className="bg-gray-700 text-white px-4 py-2 rounded-md"
+                        className="bg-gray-700 text-white px-4 py-2 rounded-md text-xl"
                         placeholder="Enter model name..."
                         value={customModelInput}
                         onChange={(e) => setCustomModelInput(e.target.value)}
                     />
                 )}
 
-                <span className="text-base text-gray-400">Current: {effectiveModelName}</span>
+                <span className="text-xl text-gray-400">Current: {effectiveModelName}</span>
             </label>
 
             {/* Temperature */}
             <label className="flex flex-col gap-2">
                 <div className="flex flex-row gap-2">
-                    <span className="text-2xl">Temperature</span>
-                    <span className="text-2xl">{temperature}</span>
+                    <span className="text-3xl">Temperature</span>
+                    <span className="text-3xl">{temperature}</span>
                 </div>
                 <input
                     type="range"
@@ -337,21 +337,21 @@ export default function Config() {
             {/* API Keys based on provider */}
             {(llmProvider === 'openai' || llmProvider === 'azure-openai') && (
                 <label className="flex flex-col gap-2">
-                    <span className="text-2xl">OpenAI API Key</span>
+                    <span className="text-3xl">OpenAI API Key</span>
                     <SecretInput value={openaiApiKey} onChange={(value) => setOpenaiApiKey(value)} />
                 </label>
             )}
 
             {llmProvider === 'anthropic' && (
                 <label className="flex flex-col gap-2">
-                    <span className="text-2xl">Anthropic API Key</span>
+                    <span className="text-3xl">Anthropic API Key</span>
                     <SecretInput value={anthropicApiKey} onChange={(value) => setAnthropicApiKey(value)} />
                 </label>
             )}
 
             {(llmProvider === 'openrouter' || llmProvider === 'aws-bedrock' || llmProvider === 'google-vertex' || llmProvider === 'custom') && (
                 <label className="flex flex-col gap-2">
-                    <span className="text-2xl">{llmProvider === 'openrouter' ? 'OpenRouter' : 'Custom'} API Key</span>
+                    <span className="text-3xl">{llmProvider === 'openrouter' ? 'OpenRouter' : 'Custom'} API Key</span>
                     <SecretInput value={customApiKey} onChange={(value) => setCustomApiKey(value)} />
                 </label>
             )}
@@ -368,15 +368,15 @@ export default function Config() {
                 {showAdvanced && (
                     <div className="mt-4 space-y-4 pl-4 border-l-2 border-gray-600">
                         <label className="flex flex-col gap-2">
-                            <span className="text-xl">Custom Base URL</span>
+                            <span className="text-3xl">Custom Base URL</span>
                             <input
                                 type="text"
-                                className="bg-gray-700 text-white px-4 py-2 rounded-md"
+                                className="bg-gray-700 text-white px-4 py-2 rounded-md text-xl"
                                 placeholder="https://api.example.com/v1"
                                 value={customBaseURL}
                                 onChange={(e) => setCustomBaseURL(e.target.value)}
                             />
-                            <span className="text-base text-gray-400">
+                            <span className="text-xl text-gray-400">
                                 For custom endpoints, proxies, or local LLMs (e.g., LM Studio, Ollama)
                             </span>
                         </label>
@@ -391,7 +391,7 @@ export default function Config() {
 
             {/* Performance Optimization Section */}
             <div className="border-t border-gray-700 pt-4 mt-4">
-                <h3 className="text-xl font-semibold mb-3">Performance Optimization</h3>
+                <h3 className="text-3xl font-semibold mb-3">Performance Optimization</h3>
 
                 {/* Auto Summarization */}
                 <label className="flex items-center gap-3 py-2">
@@ -403,7 +403,7 @@ export default function Config() {
                     />
                     <div className="flex flex-col flex-1">
                         <span className="text-lg">Auto Summarization</span>
-                        <span className="text-base text-gray-400">
+                        <span className="text-xl text-gray-400">
                             Automatically summarize long conversations to reduce token usage
                         </span>
                     </div>
@@ -425,7 +425,7 @@ export default function Config() {
                             />
                             <span className="text-white font-mono w-12 text-right">{chatHistoryLimit}</span>
                         </div>
-                        <span className="text-base text-gray-400">
+                        <span className="text-xl text-gray-400">
                             Maximum number of messages to store in history (default: 100)
                         </span>
                     </label>
@@ -434,13 +434,13 @@ export default function Config() {
                 {/* Summarization Settings - Advanced */}
                 {enableAutoSummarization && (
                     <div className="flex flex-col gap-4 pl-8 bg-gray-800 p-4 rounded-md mt-2">
-                        <div className="text-sm text-gray-400 mb-2">
+                        <div className="text-lg text-gray-400 mb-2">
                             ⚙️ <span className="font-semibold">Advanced Settings</span> - Summarization configuration
                         </div>
 
                         {/* Interactive Drag Bar */}
                         <div className="bg-gray-900 p-6 rounded-md">
-                            <div className="text-sm text-gray-300 mb-4 font-semibold">Interactive History Range Configuration</div>
+                            <div className="text-lg text-gray-300 mb-4 font-semibold">Interactive History Range Configuration</div>
 
                             {/* Scale markers */}
                             <div className="relative mb-2">
@@ -639,7 +639,7 @@ export default function Config() {
                     />
                     <div className="flex flex-col">
                         <span className="text-lg">Use Lightweight Models</span>
-                        <span className="text-base text-gray-400">
+                        <span className="text-xl text-gray-400">
                             Use faster, cheaper models (gpt-4o-mini, claude-haiku) for tool calls and summarization
                         </span>
                     </div>
@@ -655,7 +655,7 @@ export default function Config() {
                 >
                     Reset Chat History
                 </button>
-                <span className="text-base text-gray-400 block mt-2">
+                <span className="text-xl text-gray-400 block mt-2">
                     Warning: This will permanently delete all conversation history
                 </span>
             </div>
@@ -674,7 +674,7 @@ export default function Config() {
         return (
             <div className="space-y-4">
                 <div className="bg-gray-700/50 rounded-lg p-4 mb-4">
-                    <p className="text-base text-gray-300">
+                    <p className="text-xl text-gray-300">
                         Enable the tools you want to use. Each tool may require additional configuration.
                     </p>
                 </div>
@@ -706,7 +706,7 @@ export default function Config() {
                                         />
                                         <div className="flex flex-col flex-1">
                                             <span className="text-lg">{tool.name}</span>
-                                            <span className="text-base text-gray-400">{tool.description}</span>
+                                            <span className="text-xl text-gray-400">{tool.description}</span>
                                         </div>
                                     </label>
 
@@ -737,8 +737,8 @@ export default function Config() {
             {/* Display Scale */}
             <label className="flex flex-col gap-2">
                 <div className="flex flex-row gap-2">
-                    <span className="text-2xl">Display Scale</span>
-                    <span className="text-2xl">{(displayScale * 100).toFixed(0)}%</span>
+                    <span className="text-3xl">Display Scale</span>
+                    <span className="text-3xl">{(displayScale * 100).toFixed(0)}%</span>
                 </div>
                 <input
                     type="range"
@@ -749,29 +749,29 @@ export default function Config() {
                     onChange={(e) => setDisplayScale(Number(e.target.value))}
                     className="bg-gray-700 px-4 py-2 rounded-md"
                 />
-                <span className="text-base text-gray-400">
+                <span className="text-xl text-gray-400">
                     Adjust app zoom level. macOS Retina: 50%, Windows/Linux: 100%. Requires restart.
                 </span>
             </label>
 
             {/* Speech Bubble Width */}
             <label className="flex flex-col gap-2">
-                <span className="text-2xl">Speech Bubble Width</span>
+                <span className="text-3xl">Speech Bubble Width</span>
                 <input
                     type="number"
                     value={speechBubbleWidth}
                     onChange={(e) => setSpeechBubbleWidth(Number(e.target.value))}
-                    className="bg-gray-700 text-white px-4 py-2 rounded-md"
+                    className="bg-gray-700 text-white px-4 py-2 rounded-md text-xl"
                     style={{width: '150px'}}
                 />
-                <span className="text-base text-gray-400">
+                <span className="text-xl text-gray-400">
                     Width in pixels. Default: 500. Requires restart.
                 </span>
             </label>
 
             {/* Speech Bubble Styling Section */}
             <div className="border-t border-gray-700 pt-4 mt-4">
-                <h3 className="text-xl font-semibold mb-3">Speech Bubble Styling</h3>
+                <h3 className="text-3xl font-semibold mb-3">Speech Bubble Styling</h3>
 
                 {/* Font Family */}
                 <label className="flex flex-col gap-2 mb-4">
@@ -828,7 +828,7 @@ export default function Config() {
                             </div>
                         )}
                     </div>
-                    <span className="text-base text-gray-400">
+                    <span className="text-xl text-gray-400">
                         Click to select, search to filter fonts
                     </span>
                     {/* Font Preview */}
@@ -849,14 +849,19 @@ export default function Config() {
                     <input
                         type="number"
                         value={speechBubbleFontSize}
-                        onChange={(e) => setSpeechBubbleFontSize(Number(e.target.value))}
-                        className="bg-gray-700 text-white px-4 py-2 rounded-md"
+                        onChange={(e) => setSpeechBubbleFontSize(Number(e.target.value) || 0)}
+                        onBlur={(e) => {
+                            if (e.target.value === '' || Number(e.target.value) === 0) {
+                                setSpeechBubbleFontSize(24);
+                            }
+                        }}
+                        className="bg-gray-700 text-white px-4 py-2 rounded-md text-xl"
                         style={{width: '150px'}}
                         min="10"
                         max="32"
                     />
-                    <span className="text-base text-gray-400">
-                        Font size in pixels. Default: 16
+                    <span className="text-xl text-gray-400">
+                        Font size in pixels. Default: 24
                     </span>
                 </label>
 
@@ -866,7 +871,7 @@ export default function Config() {
                     <textarea
                         value={speechBubbleCustomCSS}
                         onChange={(e) => setSpeechBubbleCustomCSS(e.target.value)}
-                        className="bg-gray-700 text-white px-4 py-2 rounded-md font-mono text-sm"
+                        className="bg-gray-700 text-white px-4 py-2 rounded-md font-mono text-lg"
                         rows={6}
                         placeholder="/* Custom CSS rules for speech bubble */
 .speechBubble {
@@ -874,7 +879,7 @@ export default function Config() {
   text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
 }"
                     />
-                    <span className="text-base text-gray-400">
+                    <span className="text-xl text-gray-400">
                         Advanced: Add custom CSS rules to override speech bubble styling
                     </span>
                 </label>
@@ -885,7 +890,7 @@ export default function Config() {
     const renderDevelopersTab = () => (
         <div className="space-y-4">
             <div className="bg-yellow-900/30 border border-yellow-600/50 rounded-lg p-4 mb-4">
-                <p className="text-yellow-200 text-base">
+                <p className="text-yellow-200 text-xl">
                     ⚠️ Developer settings for debugging and performance monitoring. LangSmith tracing helps identify slow response times.
                 </p>
             </div>
@@ -900,7 +905,7 @@ export default function Config() {
                 />
                 <div className="flex flex-col flex-1">
                     <span className="text-lg">Enable LangSmith Tracing</span>
-                    <span className="text-base text-gray-400">
+                    <span className="text-xl text-gray-400">
                         Track LLM calls, latency, and token usage. Requires LangSmith API key.
                     </span>
                 </div>
@@ -910,27 +915,27 @@ export default function Config() {
             {enableLangsmithTracing && (
                 <>
                     <label className="flex flex-col gap-2">
-                        <span className="text-2xl">LangSmith API Key</span>
+                        <span className="text-3xl">LangSmith API Key</span>
                         <SecretInput
                             value={langsmithApiKey}
                             onChange={(value) => setLangsmithApiKey(value)}
                         />
-                        <span className="text-base text-gray-400">
+                        <span className="text-xl text-gray-400">
                             Get your API key from <a href="https://smith.langchain.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">smith.langchain.com</a>
                         </span>
                     </label>
 
                     {/* LangSmith Project Name */}
                     <label className="flex flex-col gap-2">
-                        <span className="text-2xl">Project Name</span>
+                        <span className="text-3xl">Project Name</span>
                         <input
                             type="text"
                             value={langsmithProjectName}
                             onChange={(e) => setLangsmithProjectName(e.target.value)}
-                            className="bg-gray-700 text-white px-4 py-2 rounded-md"
+                            className="bg-gray-700 text-white px-4 py-2 rounded-md text-xl"
                             placeholder="akagaku"
                         />
-                        <span className="text-base text-gray-400">
+                        <span className="text-xl text-gray-400">
                             LangSmith project for organizing traces. Default: "akagaku"
                         </span>
                     </label>
@@ -940,7 +945,7 @@ export default function Config() {
             {/* Performance Monitoring Info */}
             <div className="bg-gray-700/50 rounded-lg p-4 mt-6">
                 <h3 className="text-lg font-semibold mb-2">Performance Debugging Tips</h3>
-                <ul className="text-base text-gray-300 space-y-2 list-disc list-inside">
+                <ul className="text-xl text-gray-300 space-y-2 list-disc list-inside">
                     <li>Enable LangSmith to see detailed timing for each LLM call and tool execution</li>
                     <li>Check console logs for [Performance] markers showing execution times</li>
                     <li>Long response times often caused by: tool execution, summarization, or slow LLM API</li>
@@ -951,13 +956,13 @@ export default function Config() {
     );
 
     return (
-        <div className="config-page bg-gray-800 text-white h-screen w-screen flex" style={{ fontSize: '18px' }}>
+        <div className="config-page bg-gray-800 text-white h-screen w-screen flex">
             {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage('')} />}
 
             {/* Left Sidebar */}
             <div className="w-48 bg-gray-900 flex flex-col border-r border-gray-700">
                 <div className="p-4 border-b border-gray-700">
-                    <h1 className="text-2xl font-bold">Settings</h1>
+                    <h1 className="text-3xl font-bold">Settings</h1>
                 </div>
                 <div className="flex-1 flex flex-col">
                     <TabButton tab="llm" label="LLM" />
@@ -981,14 +986,14 @@ export default function Config() {
                 {/* Action Buttons */}
                 <div className="flex gap-2 p-4 border-t border-gray-700">
                     <button
-                        className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
+                        className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 text-2xl"
                         style={{ flex: 1 }}
                         onClick={saveConfig}
                     >
                         Save
                     </button>
                     <button
-                        className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700"
+                        className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 text-2xl"
                         style={{ flex: 1 }}
                         onClick={() => window.ipc.send('user-action', 'CLOSE_CONFIG')}
                     >

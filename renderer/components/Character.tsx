@@ -26,7 +26,7 @@ const TouchablePath = ({ path, onTouch, onClick, onMouseLeave }: TouchablePathPr
     )
 }
 
-export default function Character({ character_name, character_width, character_height, imgSrc, touchable_areas }: CharacterDisplayProperties) {
+export default function Character({ character_name, character_width, character_height, imgSrc, touchable_areas, displayScale = 1.0 }: CharacterDisplayProperties & { displayScale?: number }) {
     const [isHovered, setIsHovered] = useState(false);
 
     const [isTouched, setIsTouched] = useState(false);
@@ -70,7 +70,7 @@ export default function Character({ character_name, character_width, character_h
 
     return (
         <div className="character inline-block relative right-0 bottom-0" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
-            {isHovered && <OverlayMenu />}
+            {isHovered && <OverlayMenu displayScale={displayScale} />}
             {touchable_areas &&
                 <svg className="absolute top-0 left-0 z-1" viewBox={`0 0 ${character_width} ${character_height}`}>
                     {touchable_areas.map((area, i) => (

@@ -8,6 +8,7 @@ export default function SpeechBubblePage() {
     const [displayText, setDisplayText] = useState('')
     const [isComplete, setIsComplete] = useState(false)
     const [isStreaming, setIsStreaming] = useState(false)
+    const [displayScale, setDisplayScale] = useState<number>(1.0)
     const timeoutRef = useRef<NodeJS.Timeout | null>(null)
     const isStreamingRef = useRef<boolean>(false)
 
@@ -15,6 +16,11 @@ export default function SpeechBubblePage() {
         // Request initial style configuration on mount
         window.ipc.send('user-action', 'REQUEST_SPEECH_BUBBLE_STYLE');
         console.log('[SpeechBubble] Requested initial style configuration');
+
+        window.ipc.on('display-scale', (scale: number) => {
+            console.log('[SpeechBubble] Display scale received:', scale);
+            setDisplayScale(scale);
+        });
 
         window.ipc.on('ghost-message-loading', (isLoading: boolean) => {
             if (isLoading) {
@@ -212,7 +218,7 @@ export default function SpeechBubblePage() {
     return (
         <>
             {!isComplete && <div className="absolute top-0 left-0 w-full h-full bg-transparent z-10" onClick={completeSpeechBubble}></div>}
-            <SpeechBubble text={displayText} onReply={handleOpenDialog} onClose={handleCloseSpeechBubble} isLoading={isMessageLoading} isComplete={isComplete} />
+            <SpeechBubble text={displayText} onReply={handleOpenDialog} onClose={handleCloseSpeechBubble} isLoading={isMessageLoading} isComplete={isComplete} displayScale={displayScale} />
         </>
     )
 }

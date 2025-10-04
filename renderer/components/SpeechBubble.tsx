@@ -10,11 +10,12 @@ interface SpeechBubbleProps {
     onClose: () => void
     isLoading: boolean
     isComplete: boolean
+    displayScale?: number
 }
 
-export default function SpeechBubble({ text, onReply, onClose, isLoading = true, isComplete = false }: SpeechBubbleProps) {
+export default function SpeechBubble({ text, onReply, onClose, isLoading = true, isComplete = false, displayScale = 1.0 }: SpeechBubbleProps) {
     return (
-        <div className="speech-bubble" style={{ userSelect: 'none' }}>
+        <div className="speech-bubble" style={{ userSelect: 'none', zoom: displayScale }}>
             <div className="flex justify-end mx-2">
                 <div className="flex gap-2 cursor-pointer" onClick={onClose}>
                     <FaWindowClose style={{ width: '30px', height: '30px', fill: 'rgb(112, 112, 112)' }} />

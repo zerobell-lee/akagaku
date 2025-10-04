@@ -5,6 +5,7 @@ import { CharacterDisplayProperties, CharacterProperties, GhostResponse } from '
 export default function HomePage() {
   const [characterEmoticon, setCharacterEmoticon] = useState<string>("neutral")
   const [character, setCharacter] = useState<CharacterProperties | null>(null)
+  const [displayScale, setDisplayScale] = useState<number>(1.0)
 
   useEffect(() => {
     console.log("HomePage useEffect")
@@ -34,9 +35,15 @@ export default function HomePage() {
       // Don't update emoticon on message complete - already updated via ghost-emoticon event
     };
 
+    const handleDisplayScale = (scale: number) => {
+      console.log('[HomePage] Display scale received:', scale);
+      setDisplayScale(scale);
+    };
+
     const unsubscribe1 = window.ipc.on('character_loaded', handleCharacterLoaded);
     const unsubscribe2 = window.ipc.on('ghost-emoticon', handleGhostEmoticon);
     const unsubscribe3 = window.ipc.on('ghost-message', handleGhostMessage);
+    const unsubscribe4 = window.ipc.on('display-scale', handleDisplayScale);
 
     window.ipc.send('user-action', 'APP_STARTED');
 
@@ -45,6 +52,7 @@ export default function HomePage() {
       unsubscribe1();
       unsubscribe2();
       unsubscribe3();
+      unsubscribe4();
     };
   }, [])
 
@@ -71,7 +79,7 @@ export default function HomePage() {
     <React.Fragment>
       <div className="absolute right-0 bottom-0">
         <div className="flex flex-row">
-          {character && <Character {...characterDisplayProperties} />}
+          {character && <Character {...characterDisplayProperties} displayScale={displayScale} />}
         </div>
       </div>
     </React.Fragment>

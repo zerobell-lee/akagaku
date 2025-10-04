@@ -11,13 +11,13 @@ import path from 'path'
 export const createWindow = (
   windowName: string,
   options: BrowserWindowConstructorOptions,
-  zoomFactor: number = 1.0,
+  scaleFactor: number = 1.0,
   applyScaleToSize: boolean = true
 ): BrowserWindow => {
   const scaledOptions = applyScaleToSize ? {
     ...options,
-    width: options.width ? Math.floor(options.width * zoomFactor) : undefined,
-    height: options.height ? Math.floor(options.height * zoomFactor) : undefined,
+    width: options.width ? Math.floor(options.width * scaleFactor) : undefined,
+    height: options.height ? Math.floor(options.height * scaleFactor) : undefined,
   } : options;
 
   const key = 'window-state'
@@ -32,7 +32,7 @@ export const createWindow = (
     height: scaledOptions.height,
   }
   let state = {}
-  console.log(`window name ${windowName} zoomFactor ${zoomFactor}`)
+  console.log(`window name ${windowName} scaleFactor ${scaleFactor}`)
 
   const restore = () => {
     const saved = store.get(key, defaultSize) as any
@@ -99,9 +99,8 @@ export const createWindow = (
     },
   })
 
-  win.webContents.on('did-finish-load', () => {
-    win.webContents.setZoomFactor(zoomFactor)
-  })
+  // Do not use webContents.setZoomFactor as it affects all windows in same renderer process
+  // Use CSS zoom property in individual pages instead
 
   win.on('close', saveState)
 

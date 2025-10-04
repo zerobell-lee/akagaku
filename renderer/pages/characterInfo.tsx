@@ -65,7 +65,7 @@ export default function CharacterInfoPage() {
   if (!characterInfo) {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
-        <p className="text-2xl">Loading...</p>
+        <p className="text-3xl">Loading...</p>
       </div>
     );
   }
@@ -80,8 +80,8 @@ export default function CharacterInfoPage() {
           {/* Affection Bar Gauge */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xl font-semibold text-gray-300">Affection</span>
-              <span className="text-xl font-bold text-white">{characterInfo.relationship.affection}/100</span>
+              <span className="text-3xl font-semibold text-gray-300">Affection</span>
+              <span className="text-3xl font-bold text-white">{characterInfo.relationship.affection}/100</span>
             </div>
             <div className="w-full h-8 bg-gray-700 rounded-full overflow-hidden">
               <div
@@ -107,7 +107,7 @@ export default function CharacterInfoPage() {
           </div>
 
           {/* Attitude */}
-          <div className="text-gray-400 text-xl">
+          <div className="text-gray-400 text-3xl">
             <p>Attitude: <span className="text-white font-semibold">{characterInfo.relationship.attitude}</span></p>
           </div>
         </div>
@@ -135,20 +135,20 @@ export default function CharacterInfoPage() {
                       className="w-full h-full object-contain rounded-md"
                     />
                   ) : (
-                    <span className="text-gray-500 text-xl">No Image</span>
+                    <span className="text-gray-500 text-3xl">No Image</span>
                   )}
                 </div>
 
                 {/* Skin Info */}
                 <div>
-                  <h3 className="font-semibold text-2xl mb-2">{skin.skin_name}</h3>
-                  <p className="text-base text-gray-400 mb-3">{skin.description}</p>
-                  <div className="text-sm text-gray-500">
+                  <h3 className="font-semibold text-3xl mb-2">{skin.skin_name}</h3>
+                  <p className="text-xl text-gray-400 mb-3">{skin.description}</p>
+                  <div className="text-lg text-gray-500">
                     <p>Version: {skin.version}</p>
                     {skin.author && <p>Author: {skin.author}</p>}
                   </div>
                   {skin.skin_id === characterInfo.activeSkinId && (
-                    <div className="mt-3 text-blue-400 text-base font-semibold">
+                    <div className="mt-3 text-blue-400 text-xl font-semibold">
                       ✓ Active
                     </div>
                   )}

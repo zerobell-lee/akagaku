@@ -202,6 +202,7 @@ export class UserActionHandler implements IIPCHandler {
       touchable_areas: this.characterAppearance.touchable_areas || [], // Empty array for non-interactive skins
     };
     this.mainWindow.webContents.send('character_loaded', characterProperties);
+    this.mainWindow.webContents.send('display-scale', this.displayScale);
   }
 
   /**
@@ -243,7 +244,7 @@ export class UserActionHandler implements IIPCHandler {
       webPreferences: {
         preload: path.join(__dirname, 'preload.js'),
       },
-    }, this.displayScale, true);
+    }, 1.0, false);
 
     this.loadUrlOnBrowserWindow(this.userChatInputWindow, 'chatDialog');
 
@@ -338,15 +339,15 @@ export class UserActionHandler implements IIPCHandler {
   async handleOpenConfig(): Promise<void> {
     if (!this.configWindow) {
       this.configWindow = createWindow('config', {
-        width: 900,
-        height: 800,
+        width: 800,
+        height: 600,
         title: 'Akagaku - Settings',
         transparent: false,
         frame: true,
         webPreferences: {
           preload: path.join(__dirname, 'preload.js'),
         },
-      }, this.displayScale, true);
+      }, 1.0, true);
 
       this.configWindow.setMenuBarVisibility(false);
       this.loadUrlOnBrowserWindow(this.configWindow, 'config');
@@ -419,15 +420,15 @@ export class UserActionHandler implements IIPCHandler {
   async handleOpenLog(): Promise<void> {
     if (!this.logsWindow) {
       this.logsWindow = createWindow('logs', {
-        width: 1400,
-        height: 800,
+        width: 1000,
+        height: 700,
         title: 'Akagaku - Chat History',
         transparent: false,
         frame: true,
         webPreferences: {
           preload: path.join(__dirname, 'preload.js'),
         },
-      }, this.displayScale, true);
+      }, 1.0, true);
 
       this.loadUrlOnBrowserWindow(this.logsWindow, 'logs');
       this.logsWindow.setMenuBarVisibility(false);
@@ -503,15 +504,15 @@ export class UserActionHandler implements IIPCHandler {
   async handleOpenCharacterInfo(): Promise<void> {
     if (!this.characterInfoWindow) {
       this.characterInfoWindow = createWindow('character-info', {
-        width: 1000,
-        height: 800,
+        width: 900,
+        height: 700,
         title: 'Akagaku - Character Info',
         transparent: false,
         frame: true,
         webPreferences: {
           preload: path.join(__dirname, 'preload.js'),
         },
-      }, this.displayScale, true);
+      }, 1.0, true);
 
       this.characterInfoWindow.setMenuBarVisibility(false);
       this.loadUrlOnBrowserWindow(this.characterInfoWindow, 'characterInfo');
@@ -769,6 +770,7 @@ export class UserActionHandler implements IIPCHandler {
       await new Promise<void>((resolve) => {
         this.speechBubbleWindow!.once('ready-to-show', () => {
           this.speechBubbleWindow?.showInactive();
+          this.speechBubbleWindow?.webContents.send('display-scale', this.displayScale);
           resolve();
         });
       });
@@ -803,6 +805,7 @@ export class UserActionHandler implements IIPCHandler {
 
         this.speechBubbleWindow.once('ready-to-show', () => {
           this.speechBubbleWindow?.showInactive();
+          this.speechBubbleWindow?.webContents.send('display-scale', this.displayScale);
           this.speechBubbleWindow?.webContents.send('ghost-message-loading', false);
           this.speechBubbleWindow?.webContents.send('ghost-message', response);
         });
@@ -842,6 +845,7 @@ export class UserActionHandler implements IIPCHandler {
 
         this.speechBubbleWindow.once('ready-to-show', () => {
           this.speechBubbleWindow?.showInactive();
+          this.speechBubbleWindow?.webContents.send('display-scale', this.displayScale);
           this.speechBubbleWindow?.webContents.send('ghost-message-loading', false);
           this.speechBubbleWindow?.webContents.send('ghost-message', { error: error });
         });

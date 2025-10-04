@@ -5,8 +5,11 @@ import { ImExit } from "react-icons/im";
 import { TbLogs } from "react-icons/tb";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { FaUser } from "react-icons/fa";
-export const OverlayMenu = () => {
+export const OverlayMenu = ({ displayScale = 1.0 }: { displayScale?: number }) => {
     const [platform, setPlatform] = useState<string>('');
+    // Remove zoom from this component - it's already sized correctly via CSS
+    // Icons are 30px which will be scaled by parent if needed
+    const iconSize = 30;
 
     useEffect(() => {
         // Detect platform
