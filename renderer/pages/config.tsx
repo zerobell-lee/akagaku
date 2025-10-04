@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { Toast } from "../components/Toast";
 import { SecretInput } from "renderer/components/SecretInput";
@@ -57,6 +57,9 @@ export default function Config() {
     const [speechBubbleFontSize, setSpeechBubbleFontSize] = useState(16);
     const [speechBubbleCustomCSS, setSpeechBubbleCustomCSS] = useState('');
     const [systemFonts, setSystemFonts] = useState<string[]>([]);
+    const [fontSearchQuery, setFontSearchQuery] = useState('');
+    const [showFontDropdown, setShowFontDropdown] = useState(false);
+    const fontDropdownRef = useRef<HTMLDivElement>(null);
     const [langsmithProjectName, setLangsmithProjectName] = useState('akagaku');
 
     // Legacy support - map old llmService to new provider
@@ -143,6 +146,7 @@ export default function Config() {
 
         // Speech bubble styling
         setSpeechBubbleFontFamily(response.speechBubbleFontFamily || '');
+        setFontSearchQuery(response.speechBubbleFontFamily || '');
         setSpeechBubbleFontSize(response.speechBubbleFontSize || 16);
         setSpeechBubbleCustomCSS(response.speechBubbleCustomCSS || '');
 
@@ -151,6 +155,23 @@ export default function Config() {
 
         setIsLoading(false);
     }
+
+    // Close font dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (fontDropdownRef.current && !fontDropdownRef.current.contains(event.target as Node)) {
+                setShowFontDropdown(false);
+            }
+        };
+
+        if (showFontDropdown) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showFontDropdown]);
 
     const updateProvider = (provider: LLMProvider) => {
         setLlmProvider(provider);
@@ -755,18 +776,60 @@ export default function Config() {
                 {/* Font Family */}
                 <label className="flex flex-col gap-2 mb-4">
                     <span className="text-lg">Font Family</span>
-                    <select
-                        className="bg-gray-700 text-white px-4 py-2 rounded-md"
-                        value={speechBubbleFontFamily}
-                        onChange={(e) => setSpeechBubbleFontFamily(e.target.value)}
-                    >
-                        <option value="">Default (System Font)</option>
-                        {systemFonts.map((font) => (
-                            <option key={font} value={font}>{font}</option>
-                        ))}
-                    </select>
+                    <div className="relative" ref={fontDropdownRef}>
+                        <div
+                            className="bg-gray-700 text-white px-4 py-2 rounded-md cursor-pointer flex justify-between items-center"
+                            onClick={() => {
+                                setFontSearchQuery('');
+                                setShowFontDropdown(!showFontDropdown);
+                            }}
+                        >
+                            <span>{speechBubbleFontFamily || 'Default (System Font)'}</span>
+                            <span className="text-gray-400">{showFontDropdown ? '▲' : '▼'}</span>
+                        </div>
+                        {showFontDropdown && (
+                            <div className="absolute z-10 w-full mt-1 bg-gray-700 rounded-md shadow-lg max-h-60 overflow-hidden flex flex-col">
+                                <input
+                                    type="text"
+                                    className="bg-gray-600 text-white px-4 py-2 border-b border-gray-500 outline-none"
+                                    placeholder="Search fonts..."
+                                    value={fontSearchQuery}
+                                    onChange={(e) => setFontSearchQuery(e.target.value)}
+                                    onClick={(e) => e.stopPropagation()}
+                                />
+                                <div className="overflow-y-auto max-h-52">
+                                    <div
+                                        className="px-4 py-2 hover:bg-gray-600 cursor-pointer text-white"
+                                        onClick={() => {
+                                            setSpeechBubbleFontFamily('');
+                                            setFontSearchQuery('');
+                                            setShowFontDropdown(false);
+                                        }}
+                                    >
+                                        Default (System Font)
+                                    </div>
+                                    {systemFonts
+                                        .filter(font => font.toLowerCase().includes(fontSearchQuery.toLowerCase()))
+                                        .map((font) => (
+                                            <div
+                                                key={font}
+                                                className="px-4 py-2 hover:bg-gray-600 cursor-pointer text-white"
+                                                style={{ fontFamily: font }}
+                                                onClick={() => {
+                                                    setSpeechBubbleFontFamily(font);
+                                                    setFontSearchQuery('');
+                                                    setShowFontDropdown(false);
+                                                }}
+                                            >
+                                                {font}
+                                            </div>
+                                        ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                     <span className="text-base text-gray-400">
-                        Select font for speech bubble text
+                        Click to select, search to filter fonts
                     </span>
                     {/* Font Preview */}
                     <div

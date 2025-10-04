@@ -769,7 +769,6 @@ export class UserActionHandler implements IIPCHandler {
       await new Promise<void>((resolve) => {
         this.speechBubbleWindow!.once('ready-to-show', () => {
           this.speechBubbleWindow?.showInactive();
-          this.applySpeechBubbleStyle();
           resolve();
         });
       });
@@ -804,7 +803,6 @@ export class UserActionHandler implements IIPCHandler {
 
         this.speechBubbleWindow.once('ready-to-show', () => {
           this.speechBubbleWindow?.showInactive();
-          this.applySpeechBubbleStyle();
           this.speechBubbleWindow?.webContents.send('ghost-message-loading', false);
           this.speechBubbleWindow?.webContents.send('ghost-message', response);
         });
@@ -844,7 +842,6 @@ export class UserActionHandler implements IIPCHandler {
 
         this.speechBubbleWindow.once('ready-to-show', () => {
           this.speechBubbleWindow?.showInactive();
-          this.applySpeechBubbleStyle();
           this.speechBubbleWindow?.webContents.send('ghost-message-loading', false);
           this.speechBubbleWindow?.webContents.send('ghost-message', { error: error });
         });
@@ -918,28 +915,6 @@ export class UserActionHandler implements IIPCHandler {
       customCSS: speechBubbleCustomCSS
     });
 
-    this.speechBubbleWindow?.webContents.send('update-speech-bubble-style', {
-      fontFamily: speechBubbleFontFamily || '',
-      fontSize: speechBubbleFontSize || 16,
-      customCSS: speechBubbleCustomCSS || ''
-    });
-  }
-
-  /**
-   * Apply custom styling to speech bubble
-   */
-  private applySpeechBubbleStyle(): void {
-    const speechBubbleFontFamily = this.configRepository.getConfig('speechBubbleFontFamily') as string;
-    const speechBubbleFontSize = this.configRepository.getConfig('speechBubbleFontSize') as number;
-    const speechBubbleCustomCSS = this.configRepository.getConfig('speechBubbleCustomCSS') as string;
-
-    console.log('[UserActionHandler] Applying speech bubble style:', {
-      fontFamily: speechBubbleFontFamily,
-      fontSize: speechBubbleFontSize,
-      customCSS: speechBubbleCustomCSS
-    });
-
-    // Always send style update to speech bubble window
     this.speechBubbleWindow?.webContents.send('update-speech-bubble-style', {
       fontFamily: speechBubbleFontFamily || '',
       fontSize: speechBubbleFontSize || 16,
