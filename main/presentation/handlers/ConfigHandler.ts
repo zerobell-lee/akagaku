@@ -78,7 +78,9 @@ export class ConfigHandler implements IIPCHandler {
     console.log('[ConfigHandler] Saving configuration:', {
       llmService: config.llmService,
       selectedModel: config.selectedModel,
-      temperature: config.temperature
+      temperature: config.temperature,
+      speechBubbleFontFamily: config.speechBubbleFontFamily,
+      speechBubbleFontSize: config.speechBubbleFontSize
     });
 
     // Get previous values for comparison
@@ -254,16 +256,25 @@ export class ConfigHandler implements IIPCHandler {
    * Update speech bubble styling
    */
   private updateSpeechBubbleStyle(config: ConfigData): void {
+    console.log('[ConfigHandler] updateSpeechBubbleStyle called with:', {
+      fontFamily: config.speechBubbleFontFamily,
+      fontSize: config.speechBubbleFontSize,
+      customCSS: config.speechBubbleCustomCSS
+    });
+
     // Save speech bubble styling
     if (config.speechBubbleFontFamily !== undefined) {
+      console.log('[ConfigHandler] Saving speechBubbleFontFamily:', config.speechBubbleFontFamily);
       this.configRepository.setConfig('speechBubbleFontFamily', config.speechBubbleFontFamily);
     }
 
     if (config.speechBubbleFontSize !== undefined) {
+      console.log('[ConfigHandler] Saving speechBubbleFontSize:', config.speechBubbleFontSize);
       this.configRepository.setConfig('speechBubbleFontSize', config.speechBubbleFontSize);
     }
 
     if (config.speechBubbleCustomCSS !== undefined) {
+      console.log('[ConfigHandler] Saving speechBubbleCustomCSS:', config.speechBubbleCustomCSS);
       this.configRepository.setConfig('speechBubbleCustomCSS', config.speechBubbleCustomCSS);
     }
 

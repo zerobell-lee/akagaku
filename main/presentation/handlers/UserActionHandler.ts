@@ -309,6 +309,7 @@ export class UserActionHandler implements IIPCHandler {
       openaiApiKey: this.configRepository.getConfig('openaiApiKey') as string || "",
       anthropicApiKey: this.configRepository.getConfig('anthropicApiKey') as string || "",
       llmService: this.configRepository.getConfig('llmService') as string || "",
+      llmProvider: this.configRepository.getConfig('llmProvider') as string || this.configRepository.getConfig('llmService') as string || "",
       selectedModel: this.configRepository.getConfig('selectedModel') as string || "",
       temperature: this.configRepository.getConfig('temperature') as number || 1,
       openweathermapApiKey: this.configRepository.getConfig('openweathermapApiKey') as string || "",
@@ -319,9 +320,13 @@ export class UserActionHandler implements IIPCHandler {
       enableLightweightModel: this.configRepository.getConfig('enableLightweightModel') !== false,
       enableAutoSummarization: this.configRepository.getConfig('enableAutoSummarization') !== false,
       summarizationThreshold: this.configRepository.getConfig('summarizationThreshold') as number || 40,
+      keepRecentMessages: this.configRepository.getConfig('keepRecentMessages') as number || 20,
       langsmithApiKey: this.configRepository.getConfig('langsmithApiKey') as string || "",
       enableLangsmithTracing: this.configRepository.getConfig('enableLangsmithTracing') as boolean || false,
       langsmithProjectName: this.configRepository.getConfig('langsmithProjectName') as string || "akagaku",
+      speechBubbleFontFamily: this.configRepository.getConfig('speechBubbleFontFamily') as string || "",
+      speechBubbleFontSize: this.configRepository.getConfig('speechBubbleFontSize') as number || 16,
+      speechBubbleCustomCSS: this.configRepository.getConfig('speechBubbleCustomCSS') as string || "",
       toolConfigs: this.toolConfigRepository.getAllToolConfigs()
     });
   }
