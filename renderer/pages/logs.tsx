@@ -167,12 +167,12 @@ export default function Logs() {
                             return (
                                 <div className="flex flex-row gap-4 py-4 bg-gray-900 border-b border-gray-800 hover:bg-gray-800 hover:text-white" key={globalIndex}>
                                     <div className="shrink-0 min-w-[120px] flex flex-col items-center justify-center gap-1">
-                                        <div className="text-2xl text-gray-300 font-semibold">{log.role}</div>
+                                        <div className="text-xl text-gray-300 font-semibold">{log.role}</div>
                                         <div className="text-xs text-gray-500">{formatTimestamp(log.createdAt)}</div>
                                         <div className="text-xs text-gray-600">#{globalIndex + 1}</div>
                                     </div>
                                     <div className="w-px bg-gray-700 shrink-0"></div>
-                                    <div className="text-3xl text-gray-100 flex-1 whitespace-pre-wrap break-words leading-relaxed">{log.content}</div>
+                                    <div className="text-xl text-gray-100 flex-1 whitespace-pre-wrap break-words leading-relaxed">{log.content}</div>
                                 </div>
                             );
                         })}

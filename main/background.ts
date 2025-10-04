@@ -1,5 +1,5 @@
 import path from 'path'
-import { app, BrowserWindow, ipcMain, protocol, screen, Tray, nativeImage, shell, globalShortcut } from 'electron'
+import { app, BrowserWindow, ipcMain, protocol, session, Tray, nativeImage, shell, globalShortcut } from 'electron'
 import serve from 'electron-serve'
 import { createWindow } from './helpers'
 import { PlatformUtils } from './helpers/PlatformUtils'
@@ -30,8 +30,9 @@ import { topicRepository } from './infrastructure/topic/TopicRepository'
 import { relationshipRepository } from './infrastructure/user/RelationshipRepository'
 
 
-// app.commandLine.appendSwitch('high-dpi-support', '1');
-// app.commandLine.appendSwitch('force-device-scale-factor', '1');
+// Force device scale factor to 1 to prevent doubling on high-DPI displays
+app.commandLine.appendSwitch('high-dpi-support', '1');
+app.commandLine.appendSwitch('force-device-scale-factor', '1');
 
 const isProd = process.env.NODE_ENV === 'production'
 
@@ -79,6 +80,17 @@ const createGhostWindow = (characterAppearance: CharacterAppearance) => {
   const displayArea = ScreenUtils.getPrimaryDisplayArea();
   const screenWidth = displayArea.width;
 
+  console.log('[DEBUG] Creating ghost window:', {
+    characterAppearance: {
+      width: characterAppearance.character_width,
+      height: characterAppearance.character_height
+    },
+    displayScale,
+    screenWidth,
+    screenHeight: displayArea.height,
+    displayArea
+  });
+
   const ghostWindow = createWindow('main', {
     width: characterAppearance.character_width,
     height: characterAppearance.character_height,
@@ -89,14 +101,27 @@ const createGhostWindow = (characterAppearance: CharacterAppearance) => {
     skipTaskbar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
+      partition: 'persist:ghost',
     },
   }, displayScale, true)  // applyScaleToSize: true
 
+  // Fix zoom factor issue - window is created at correct size but renders larger
+  // ghostWindow.webContents.setZoomFactor(1.0);
+
   // Window size is already scaled by createWindow
+  // Apply displayScale to get final window size
   const scaledWidth = Math.floor(characterAppearance.character_width * displayScale);
   const scaledHeight = Math.floor(characterAppearance.character_height * displayScale);
 
   const actualBounds = ghostWindow.getBounds();
+  console.log('[DEBUG] After createWindow:', {
+    expectedScaledSize: { width: scaledWidth, height: scaledHeight },
+    actualBounds,
+    boundsMatch: actualBounds.width === scaledWidth && actualBounds.height === scaledHeight,
+    widthDiff: actualBounds.width - scaledWidth,
+    heightDiff: actualBounds.height - scaledHeight
+  });
+
   console.log('[Window] Character dimensions:', {
     original: { width: characterAppearance.character_width, height: characterAppearance.character_height },
     displayScale,
@@ -124,6 +149,9 @@ const createGhostWindow = (characterAppearance: CharacterAppearance) => {
   }
 
   ghostWindow.setPosition(finalX, finalY)
+
+  // Remove all zoom factor manipulation - it was based on wrong assumption
+  // displayScale is 1.0, not 0.5
 
   return ghostWindow
 };
@@ -226,8 +254,6 @@ const hasApiKey = (): boolean => {
   characterName = configRepository.getConfig('characterName') as string || "minkee";
   displayScale = configRepository.getConfig('displayScale') as number || 0.5;
   speechBubbleWidth = configRepository.getConfig('speechBubbleWidth') as number || 500;
-  console.log('[DEBUG] displayScale loaded:', displayScale);
-  console.log('[DEBUG] speechBubbleWidth loaded:', speechBubbleWidth);
 
   // LangSmith configuration
   const enableLangsmithTracing = configRepository.getConfig('enableLangsmithTracing') as boolean || false;
@@ -285,6 +311,28 @@ const hasApiKey = (): boolean => {
   }
 
   protocol.handle('local-resource', async (request) => {
+    const url = request.url.replace('local-resource://', '')
+    const decodedUrl = decodeURI(url)
+    try {
+      const filePath = path.join(app.getAppPath(), '/data', decodedUrl)
+      const data = fs.readFileSync(filePath)
+
+      // MIME 타입 결정
+      const ext = path.extname(filePath).toLowerCase()
+      let mimeType = 'application/octet-stream'
+      if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg'
+      else if (ext === '.png') mimeType = 'image/png'
+      else if (ext === '.gif') mimeType = 'image/gif'
+
+      const blob = new Blob([data], { type: mimeType })
+      return new Response(blob)
+    } catch (error) {
+      console.error('Failed to handle protocol', error)
+      return new Response('File not found', { status: 404 })
+    }
+  })
+
+  session.fromPartition("persist:ghost").protocol.handle('local-resource', async (request) => {
     const url = request.url.replace('local-resource://', '')
     const decodedUrl = decodeURI(url)
     try {

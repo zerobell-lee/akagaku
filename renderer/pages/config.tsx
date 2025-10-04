@@ -245,7 +245,7 @@ export default function Config() {
         <div className="space-y-4">
             {/* LLM Provider Selection */}
             <label className="flex flex-col gap-2">
-                <span className="text-3xl">LLM Provider</span>
+                <span className="text-2xl">LLM Provider</span>
                 <select
                     className="bg-gray-700 text-white px-4 py-2 rounded-md text-xl"
                     value={llmProvider}
@@ -263,7 +263,7 @@ export default function Config() {
 
             {/* Model Selection */}
             <label className="flex flex-col gap-2">
-                <span className="text-3xl">Model</span>
+                <span className="text-2xl">Model</span>
 
                 {/* Recommended models dropdown */}
                 {!useCustomModel && recommendedModels.length > 0 && (
@@ -282,7 +282,7 @@ export default function Config() {
                 {useCustomModel && (
                     <input
                         type="text"
-                        className="bg-gray-700 text-white px-4 py-2 rounded-md text-xl"
+                        className="bg-gray-700 text-white px-4 py-2 rounded-md text-lg"
                         placeholder="Enter custom model name..."
                         value={customModelInput}
                         onChange={(e) => setCustomModelInput(e.target.value)}
@@ -320,8 +320,8 @@ export default function Config() {
             {/* Temperature */}
             <label className="flex flex-col gap-2">
                 <div className="flex flex-row gap-2">
-                    <span className="text-3xl">Temperature</span>
-                    <span className="text-3xl">{temperature}</span>
+                    <span className="text-xl">Temperature</span>
+                    <span className="text-xl">{temperature}</span>
                 </div>
                 <input
                     type="range"
@@ -337,14 +337,14 @@ export default function Config() {
             {/* API Keys based on provider */}
             {(llmProvider === 'openai' || llmProvider === 'azure-openai') && (
                 <label className="flex flex-col gap-2">
-                    <span className="text-3xl">OpenAI API Key</span>
+                    <span className="text-xl">OpenAI API Key</span>
                     <SecretInput value={openaiApiKey} onChange={(value) => setOpenaiApiKey(value)} />
                 </label>
             )}
 
             {llmProvider === 'anthropic' && (
                 <label className="flex flex-col gap-2">
-                    <span className="text-3xl">Anthropic API Key</span>
+                    <span className="text-xl">Anthropic API Key</span>
                     <SecretInput value={anthropicApiKey} onChange={(value) => setAnthropicApiKey(value)} />
                 </label>
             )}

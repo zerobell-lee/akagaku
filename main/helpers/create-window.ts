@@ -20,6 +20,14 @@ export const createWindow = (
     height: options.height ? Math.floor(options.height * scaleFactor) : undefined,
   } : options;
 
+  console.log('[createWindow] Scaling:', {
+    windowName,
+    originalSize: { width: options.width, height: options.height },
+    scaleFactor,
+    applyScaleToSize,
+    scaledSize: { width: scaledOptions.width, height: scaledOptions.height }
+  });
+
   const key = 'window-state'
   const name = `window-state-${windowName}`
   const windowStatePath = dataPathManager.getWindowStatePath(windowName);
@@ -99,8 +107,24 @@ export const createWindow = (
     },
   })
 
-  // Do not use webContents.setZoomFactor as it affects all windows in same renderer process
-  // Use CSS zoom property in individual pages instead
+  const finalBounds = win.getBounds();
+  console.log('[createWindow] Final window bounds:', {
+    windowName,
+    requestedSize: { width: scaledOptions.width, height: scaledOptions.height },
+    actualBounds: finalBounds,
+    sizeMatch: finalBounds.width === scaledOptions.width && finalBounds.height === scaledOptions.height
+  });
+
+  // Apply zoom factor after content loads
+  // This is necessary for macOS where force-device-scale-factor doesn't work
+  // Just use scaleFactor directly as zoomFactor
+  if (applyScaleToSize) {
+    win.webContents.on('did-finish-load', () => {
+    win.webContents.setZoomFactor(scaleFactor);
+    console.log(`[createWindow] ${windowName} - Applied zoomFactor: ${scaleFactor} after load`);
+  });
+  }
+  
 
   win.on('close', saveState)
 

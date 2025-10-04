@@ -32,19 +32,19 @@ export default function ChatDialog() {
     }
 
     return (
-        <div style={{ width: '600px', height: '600px' }}>
+        <div style={{ width: '400px', height: '400px' }}>
             <div className="dialog rounded-md" style={{ width: '100%', padding: '20px', backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-                <h2 style={{ fontSize: '32px', color: 'white' }}>Input Dialog</h2>
-                <span style={{ color: 'white', fontSize: '20px' }}>System Message</span><input type="checkbox" checked={inputValue.isSystemMessage} onChange={(e) => setInputValue({ input: inputValue.input, isSystemMessage: e.target.checked })} style={{ width: '20px', height: '20px', marginLeft: '8px' }} />
+                <h2 style={{ fontSize: '20px', color: 'white' }}>Input Dialog</h2>
+                <span style={{ color: 'white', fontSize: '12px' }}>System Message</span><input type="checkbox" checked={inputValue.isSystemMessage} onChange={(e) => setInputValue({ input: inputValue.input, isSystemMessage: e.target.checked })} style={{ width: '20px', height: '20px', marginLeft: '8px' }} />
                 <input
                     ref={inputRef}
                     value={inputValue.input}
                     onChange={(e) => setInputValue({ input: e.target.value, isSystemMessage: inputValue.isSystemMessage })}
                     onKeyDown={handleKeyDown}
-                    style={{ width: '100%', padding: '12px', margin: '10px 0', fontSize: '28px' }}
+                    style={{ width: '100%', padding: '12px', margin: '10px 0', fontSize: '18px' }}
                 />
-                <button onClick={handleSubmit} className="p-3 px-6 m-2 bg-blue-500 text-white rounded-md" style={{ fontSize: '22px' }}>Submit</button>
-                <button onClick={handleClose} className="p-3 px-6 m-2 bg-red-500 text-white rounded-md" style={{ fontSize: '22px' }}>Close</button>
+                <button onClick={handleSubmit} className="p-3 px-6 m-2 bg-blue-500 text-white rounded-md" style={{ fontSize: '18px' }}>Submit</button>
+                <button onClick={handleClose} className="p-3 px-6 m-2 bg-red-500 text-white rounded-md" style={{ fontSize: '18px' }}>Close</button>
             </div>
         </div>
     );

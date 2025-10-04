@@ -201,6 +201,17 @@ export class UserActionHandler implements IIPCHandler {
       })),
       touchable_areas: this.characterAppearance.touchable_areas || [], // Empty array for non-interactive skins
     };
+
+    const mainWindowBounds = this.mainWindow.getBounds();
+    console.log('[UserActionHandler] Sending to renderer:', {
+      displayScale: this.displayScale,
+      characterSize: {
+        width: this.characterAppearance.character_width,
+        height: this.characterAppearance.character_height
+      },
+      mainWindowBounds
+    });
+
     this.mainWindow.webContents.send('character_loaded', characterProperties);
     this.mainWindow.webContents.send('display-scale', this.displayScale);
   }
@@ -210,10 +221,17 @@ export class UserActionHandler implements IIPCHandler {
    * Initiates greeting from the character
    */
   async handleCharacterLoaded(): Promise<void> {
-    // DISABLED: Stop ghost from greeting on startup to save tokens
-    console.log('[UserActionHandler] Ghost greeting disabled on startup');
+    // Check if we should skip greeting (e.g., after zoom factor change restart)
+    const skipNextGreeting = this.configRepository.getConfig('skipNextGreeting') as boolean;
 
-    // Still trigger callback after character is loaded (e.g., start trigger manager)
+    if (skipNextGreeting) {
+      console.log('[UserActionHandler] Skipping greeting due to app restart');
+      this.configRepository.setConfig('skipNextGreeting', false);
+    } else {
+      await this.sendGhostMessage((g) => g.sayHello());
+    }
+
+    // Trigger callback after character is loaded (e.g., start trigger manager)
     if (this.onCharacterLoadedCallback) {
       this.onCharacterLoadedCallback();
     }
@@ -229,8 +247,8 @@ export class UserActionHandler implements IIPCHandler {
     }
 
     this.userChatInputWindow = createWindow('user-chat-input', {
-      width: 600,
-      height: 600,
+      width: 400,
+      height: 250,
       transparent: true,
       frame: false,
       alwaysOnTop: true,
@@ -866,6 +884,7 @@ export class UserActionHandler implements IIPCHandler {
       show: false,
       webPreferences: {
         preload: path.join(__dirname, 'preload.js'),
+        partition: 'persist:ghost'
       },
     }, this.displayScale, true);
   }
