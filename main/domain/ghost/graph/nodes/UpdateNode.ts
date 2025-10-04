@@ -92,9 +92,11 @@ async function executeUpdateUserSettingInBackground(state: GhostState): Promise<
         : JSON.stringify(state.user_setting, null, 2);
 
     // Get recent raw messages directly from DB (excludes system messages, regardless of summary state)
+    // Update runs every 10 conversations, each conversation = 2 messages (user + character)
+    // So we need 20 messages to cover all 10 conversations since last update
     const recentMessages = chatHistoryRepository.getRecentRawMessages(
         state.character_setting.character_id,
-        10
+        20  // 10 conversations × 2 messages per conversation
     );
     const chatHistoryStr = recentMessages
         .map(message => message.toChatLog())
