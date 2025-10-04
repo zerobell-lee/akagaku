@@ -350,9 +350,105 @@ export class ConfigHandler implements IIPCHandler {
     return this.toolRegistry.getAllToolsMetadata();
   }
 
+  /**
+   * Reset all window state files
+   */
+  private async resetWindowState(): Promise<void> {
+    console.log('[ConfigHandler] Resetting window state...');
+
+    try {
+      const { dataPathManager } = await import('../../infrastructure/config/DataPathManager');
+      const fs = require('fs').promises;
+      const path = require('path');
+
+      // Get userData path
+      const userDataPath = app.getPath('userData');
+      const windowStatePath = path.join(userDataPath, 'window-state');
+
+      // Delete all window state files
+      try {
+        const files = await fs.readdir(windowStatePath);
+        for (const file of files) {
+          if (file.startsWith('window-state-')) {
+            const filePath = path.join(windowStatePath, file);
+            await fs.unlink(filePath);
+            console.log(`[ConfigHandler] Deleted window state: ${file}`);
+          }
+        }
+      } catch (error) {
+        console.log('[ConfigHandler] Window state directory not found or empty');
+      }
+
+      // Also clear the window position from config
+      this.configRepository.setConfig('windowPosition', undefined);
+
+      console.log('[ConfigHandler] Window state reset complete');
+
+      // Restart app
+      app.relaunch();
+      app.exit(0);
+    } catch (error) {
+      console.error('[ConfigHandler] Failed to reset window state:', error);
+    }
+  }
+
+  /**
+   * Factory reset - clear all data and settings
+   */
+  private async factoryReset(): Promise<void> {
+    console.log('[ConfigHandler] Performing factory reset...');
+
+    try {
+      const fs = require('fs').promises;
+      const path = require('path');
+
+      // Get userData path
+      const userDataPath = app.getPath('userData');
+
+      // List of directories and files to delete
+      const itemsToDelete = [
+        'config.json',           // Main config
+        'window-state',          // Window states directory
+        'chat-history',          // Chat history directory
+        'akagaku.db',           // SQLite database
+        'tool-config.json',      // Tool configuration
+        'character-skins.json',  // Active skin preferences
+        'relationship-data.json' // Relationship data
+      ];
+
+      // Delete each item
+      for (const item of itemsToDelete) {
+        const itemPath = path.join(userDataPath, item);
+        try {
+          const stat = await fs.stat(itemPath);
+          if (stat.isDirectory()) {
+            // Recursively delete directory
+            await fs.rmdir(itemPath, { recursive: true });
+            console.log(`[ConfigHandler] Deleted directory: ${item}`);
+          } else {
+            // Delete file
+            await fs.unlink(itemPath);
+            console.log(`[ConfigHandler] Deleted file: ${item}`);
+          }
+        } catch (error) {
+          // Item doesn't exist, skip
+          console.log(`[ConfigHandler] Item not found, skipping: ${item}`);
+        }
+      }
+
+      console.log('[ConfigHandler] Factory reset complete');
+
+      // Restart app
+      app.relaunch();
+      app.exit(0);
+    } catch (error) {
+      console.error('[ConfigHandler] Failed to perform factory reset:', error);
+    }
+  }
+
   // IIPCHandler implementation
   getEventNames(): string[] {
-    return ['save_config'];
+    return ['save_config', 'reset-window-state', 'factory-reset'];
   }
 
   getInvokeEventNames(): string[] {
@@ -364,8 +460,16 @@ export class ConfigHandler implements IIPCHandler {
   }
 
   async handle(eventName: string, event: IpcMainEvent, ...args: any[]): Promise<void> {
-    if (eventName === 'save_config') {
-      await this.saveConfig(args[0] as ConfigData);
+    switch (eventName) {
+      case 'save_config':
+        await this.saveConfig(args[0] as ConfigData);
+        break;
+      case 'reset-window-state':
+        await this.resetWindowState();
+        break;
+      case 'factory-reset':
+        await this.factoryReset();
+        break;
     }
   }
 

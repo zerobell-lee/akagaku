@@ -952,6 +952,51 @@ export default function Config() {
                     <li>Adjust summarization threshold in Chat tab if summarization is slow</li>
                 </ul>
             </div>
+
+            {/* Dangerous Actions */}
+            <div className="bg-red-900/30 border border-red-600/50 rounded-lg p-4 mt-6">
+                <h3 className="text-lg font-semibold mb-4 text-red-300">⚠️ Dangerous Actions</h3>
+
+                {/* Reset Window State */}
+                <div className="mb-4">
+                    <button
+                        onClick={() => {
+                            if (confirm('Are you sure you want to reset all window positions?\n\nThis will clear saved window positions and sizes for all windows.')) {
+                                if (confirm('This action cannot be undone. Are you really sure?')) {
+                                    window.ipc.send('reset-window-state');
+                                    alert('Window state has been reset. The app will restart now.');
+                                }
+                            }
+                        }}
+                        className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-md text-xl transition-colors"
+                    >
+                        Reset Window State
+                    </button>
+                    <p className="text-xl text-gray-400 mt-2">
+                        Clears all saved window positions and sizes. Useful when windows appear off-screen.
+                    </p>
+                </div>
+
+                {/* Factory Reset */}
+                <div>
+                    <button
+                        onClick={() => {
+                            if (confirm('⚠️ FACTORY RESET ⚠️\n\nThis will:\n• Delete ALL settings\n• Clear ALL chat history\n• Remove ALL saved data\n• Reset to first-time setup\n\nAre you absolutely sure?')) {
+                                if (confirm('FINAL WARNING: This action CANNOT be undone!\n\nAll your data will be permanently deleted.\n\nType "OK" to proceed.')) {
+                                    window.ipc.send('factory-reset');
+                                    alert('Factory reset complete. The app will restart now.');
+                                }
+                            }
+                        }}
+                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-xl transition-colors"
+                    >
+                        Factory Reset
+                    </button>
+                    <p className="text-xl text-gray-400 mt-2">
+                        Completely resets the app to initial state. ALL data will be lost permanently.
+                    </p>
+                </div>
+            </div>
         </div>
     );
 
