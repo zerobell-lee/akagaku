@@ -68,23 +68,11 @@ export default function Character({ character_name, character_width, character_h
         }
     }
 
-    const scaledWidth = character_width * displayScale;
-    const scaledHeight = character_height * displayScale;
-
     return (
-        <div
-            className="character relative"
-            style={{ width: `${scaledWidth}px`, height: `${scaledHeight}px` }}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-        >
+        <div className="character inline-block relative right-0 bottom-0" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
             {isHovered && <OverlayMenu displayScale={displayScale} />}
             {touchable_areas &&
-                <svg
-                    className="absolute top-0 left-0 z-1"
-                    viewBox={`0 0 ${character_width} ${character_height}`}
-                    style={{ width: `${scaledWidth}px`, height: `${scaledHeight}px` }}
-                >
+                <svg className="absolute top-0 left-0 z-1" viewBox={`0 0 ${character_width} ${character_height}`}>
                     {touchable_areas.map((area, i) => (
                         <g key={`${area.bodyPart}-${i}`}>
                         {area.paths.map((path, index) => (
@@ -94,7 +82,7 @@ export default function Character({ character_name, character_width, character_h
                     ))}
                 </svg>
             }
-            <img src={`${imgSrc}`} style={{ width: `${scaledWidth}px`, height: `${scaledHeight}px` }} />
+            <img src={`${imgSrc}`} style={{ width: '100%', height: '100%' }} />
         </div>
     )
 }

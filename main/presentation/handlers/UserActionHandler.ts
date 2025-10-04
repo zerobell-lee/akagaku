@@ -210,17 +210,10 @@ export class UserActionHandler implements IIPCHandler {
    * Initiates greeting from the character
    */
   async handleCharacterLoaded(): Promise<void> {
-    // Check if we should skip greeting (e.g., after zoom factor change restart)
-    const skipNextGreeting = this.configRepository.getConfig('skipNextGreeting') as boolean;
+    // DISABLED: Stop ghost from greeting on startup to save tokens
+    console.log('[UserActionHandler] Ghost greeting disabled on startup');
 
-    if (skipNextGreeting) {
-      console.log('[UserActionHandler] Skipping greeting due to app restart');
-      this.configRepository.setConfig('skipNextGreeting', false);
-    } else {
-      await this.sendGhostMessage((g) => g.sayHello());
-    }
-
-    // Trigger callback after character is loaded (e.g., start trigger manager)
+    // Still trigger callback after character is loaded (e.g., start trigger manager)
     if (this.onCharacterLoadedCallback) {
       this.onCharacterLoadedCallback();
     }
