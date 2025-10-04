@@ -280,12 +280,19 @@ export class ConfigHandler implements IIPCHandler {
 
     // Send updated config to speech bubble window
     const speechBubbleWindow = this.userActionHandler.getSpeechBubbleWindow();
+    console.log('[ConfigHandler] Speech bubble window exists?', !!speechBubbleWindow);
     if (speechBubbleWindow) {
+      console.log('[ConfigHandler] Sending style update to speech bubble:', {
+        fontFamily: config.speechBubbleFontFamily,
+        fontSize: config.speechBubbleFontSize
+      });
       speechBubbleWindow.webContents.send('update-speech-bubble-style', {
         fontFamily: config.speechBubbleFontFamily,
         fontSize: config.speechBubbleFontSize,
         customCSS: config.speechBubbleCustomCSS
       });
+    } else {
+      console.log('[ConfigHandler] Speech bubble window not found, styles will be applied on next creation');
     }
   }
 
