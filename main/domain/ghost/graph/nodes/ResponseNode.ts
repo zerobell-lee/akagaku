@@ -80,12 +80,12 @@ export const ResponseNode = new RunnableLambda<GhostState, Partial<GhostState>>(
         const currentMessageAsLangChain = messageConverter.convertToLangChainMessage(newMessage);
         langchainChatHistory.push(currentMessageAsLangChain);
 
-        // Optimized: Only send essential character_setting fields to reduce token usage
+        // Send all character_setting fields (including custom fields from character creators)
+        const { character_id, available_emoticon, touchable_area, ...characterSettingForPrompt } = character_setting;
+
         const essentialCharacterSetting = {
             name: character_setting.name || character_setting.character_name,
-            dialogue_style: character_setting.dialogue_style,
-            personality: character_setting.dialogue_style?.personality,
-            background: character_setting.background
+            ...characterSettingForPrompt
         };
 
         const payload = {

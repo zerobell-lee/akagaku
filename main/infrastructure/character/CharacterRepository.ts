@@ -8,11 +8,31 @@ import { ICharacterRepository } from 'main/domain/repositories/ICharacterReposit
 import { skinRepository } from './SkinRepository';
 
 export interface CharacterSetting {
+    // Required fields
     character_id: string;
     character_name: string;
     description: string;
     available_emoticon: string[];
     touchable_area: TouchableArea | null;
+
+    // Optional common fields
+    dialogue_style?: {
+        tone?: string;
+        personality?: string[];
+        [key: string]: any;
+    };
+    likes?: string[];
+    mbti?: string;
+    weapon?: string;
+    birthday?: string;
+    appearance?: string[];
+    background?: string;
+    meta_information?: string;
+    character_age?: number;
+    character_gender?: string;
+
+    // Allow arbitrary additional fields from character creators
+    [key: string]: any;
 }
 
 const getDataDirectory = () => path.join(app.getAppPath(), 'data');

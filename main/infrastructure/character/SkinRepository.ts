@@ -62,20 +62,10 @@ class YamlSkinRepository implements ISkinRepository {
 
   /**
    * Get legacy skin manifest (backward compatibility)
+   * DEPRECATED: Legacy structure (appearance.yaml in character root) is no longer supported
    */
   private getLegacySkinManifest(characterId: string): SkinManifest[] {
-    const legacyAppearancePath = path.join(getDataDirectory(), `character/${characterId}/appearance.yaml`);
-
-    if (fs.existsSync(legacyAppearancePath)) {
-      return [{
-        manifest_version: '1.0',
-        skin_id: 'default',
-        skin_name: 'Default Appearance',
-        description: 'Standard everyday outfit',
-        version: '1.0.0'
-      }];
-    }
-
+    logger.warn(`[SkinRepository] No skins directory found for ${characterId}. Please migrate to skins/ structure.`);
     return [];
   }
 
@@ -86,18 +76,9 @@ class YamlSkinRepository implements ISkinRepository {
     const skinDir = this.getSkinDirectory(characterId, skinId);
     const appearancePath = path.join(skinDir, 'appearance.yaml');
 
-    // Check new structure
+    // Check skin appearance
     if (fs.existsSync(appearancePath)) {
       return yaml.load(fs.readFileSync(appearancePath, 'utf8')) as CharacterAppearance;
-    }
-
-    // Fallback to legacy structure for default skin
-    if (skinId === 'default') {
-      const legacyPath = path.join(getDataDirectory(), `character/${characterId}/appearance.yaml`);
-      if (fs.existsSync(legacyPath)) {
-        logger.warn(`[SkinRepository] Using legacy appearance for character ${characterId}`);
-        return yaml.load(fs.readFileSync(legacyPath, 'utf8')) as CharacterAppearance;
-      }
     }
 
     throw new Error(`Appearance not found for character ${characterId}, skin ${skinId}`);
@@ -203,20 +184,16 @@ class YamlSkinRepository implements ISkinRepository {
 
   /**
    * Check if skin exists
+   * Skin exists if skins/{skin_id}/ directory and manifest.yaml exist
+   * appearance.yaml is optional (for non-interactive skins)
    */
   skinExists(characterId: string, skinId: string): boolean {
     const skinDir = this.getSkinDirectory(characterId, skinId);
 
-    // Check new structure
+    // Skin exists if directory and manifest.yaml exist
     if (fs.existsSync(skinDir)) {
-      const appearancePath = path.join(skinDir, 'appearance.yaml');
-      return fs.existsSync(appearancePath);
-    }
-
-    // Check legacy structure for default skin
-    if (skinId === 'default') {
-      const legacyPath = path.join(getDataDirectory(), `character/${characterId}/appearance.yaml`);
-      return fs.existsSync(legacyPath);
+      const manifestPath = path.join(skinDir, 'manifest.yaml');
+      return fs.existsSync(manifestPath);
     }
 
     return false;

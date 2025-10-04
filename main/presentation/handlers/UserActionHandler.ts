@@ -199,7 +199,7 @@ export class UserActionHandler implements IIPCHandler {
         emoticon: graphic.emoticon,
         imgSrc: this.buildImagePath(graphic.imgSrc)
       })),
-      touchable_areas: this.characterAppearance.touchable_areas,
+      touchable_areas: this.characterAppearance.touchable_areas || [], // Empty array for non-interactive skins
     };
     this.mainWindow.webContents.send('character_loaded', characterProperties);
   }
@@ -611,7 +611,7 @@ export class UserActionHandler implements IIPCHandler {
         emoticon: graphic.emoticon,
         imgSrc: this.buildImagePath(graphic.imgSrc)
       })),
-      touchable_areas: this.characterAppearance.touchable_areas,
+      touchable_areas: this.characterAppearance.touchable_areas || [], // Empty array for non-interactive skins
       skipGreeting: true, // Don't trigger greeting on skin change
     };
     this.mainWindow.webContents.send('character_loaded', characterProperties);

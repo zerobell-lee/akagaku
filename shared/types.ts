@@ -41,7 +41,7 @@ export interface CharacterAppearance {
     character_width: number;
     character_height: number;
     graphics: CharacterGraphics[];
-    touchable_areas: TouchableArea[];
+    touchable_areas?: TouchableArea[]; // Optional: non-interactive skins don't need touchable areas
 }
 
 export interface TouchablePathProps {
